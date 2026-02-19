@@ -1,5 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use tauri::Manager;
+
+
 mod commands;
 mod models;
 mod services;
@@ -11,8 +14,14 @@ fn main() {
             commands::select_folder,
             commands::scan_folder,
             commands::get_last_scanned_folder,
-            commands::get_table_details
+            commands::get_table_details,
+            commands::get_table_data,
         ])
+        .on_window_event(|_window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                std::process::exit(0);
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -2,9 +2,13 @@
 use std::path::{Path, PathBuf};
 
 use lancedb::connect;
+use lancedb::query::*;
 use walkdir::{DirEntry, WalkDir};
+use arrow::json::ArrayWriter;
+use futures::StreamExt;
+use arrow::record_batch::RecordBatch;
 
-use crate::models::{AppError, ErrorCategory, FieldInfo, ScanResult, TableDetails, TableSummary};
+use crate::models::{AppError, ErrorCategory, FieldInfo, ScanResult, TableDetails, TableSummary, TableData};
 
 fn is_symlink(entry: &DirEntry) -> bool {
     entry.path_is_symlink()
@@ -177,4 +181,60 @@ mod tests {
             other => panic!("unexpected category: {:?}", other),
         }
     }
+}
+
+pub async fn get_table_data(db_path: &str, table_name: &str, limit: usize) -> Result<TableData, AppError> {
+    let db = connect(db_path).execute().await.map_err(|e| {
+        AppError::new(
+            ErrorCategory::OpenFailed,
+            "Unable to open LanceDB dataset",
+            Some(e.to_string()),
+        )
+    })?;
+
+    let table = db.open_table(table_name).execute().await.map_err(|e| {
+        AppError::new(
+            ErrorCategory::MetadataUnavailable,
+            "Unable to open table",
+            Some(e.to_string()),
+        )
+    })?;
+
+    let row_count = table.count_rows(None).await.unwrap_or(0);
+
+    let mut stream = table
+        .query()
+        .limit(limit)
+        .execute()
+        .await
+        .map_err(|e| AppError::new(ErrorCategory::Unknown, "Query failed", Some(e.to_string())))?;
+
+    let mut batches: Vec<RecordBatch> = Vec::new();
+    while let Some(batch_result) = stream.next().await {
+        let batch = batch_result.map_err(|e| AppError::new(ErrorCategory::Unknown, "Batch error", Some(e.to_string())))?;
+        batches.push(batch);
+    }
+
+    let columns = if let Some(batch) = batches.first() {
+        batch.schema().fields().iter().map(|f| f.name().clone()).collect::<Vec<String>>()
+    } else {
+        table.schema().await.map(|s| s.fields().iter().map(|f| f.name().clone()).collect::<Vec<String>>()).unwrap_or_default()
+    };
+
+    let mut buf = Vec::new();
+    {
+        let mut writer = arrow::json::ArrayWriter::new(&mut buf);
+        for batch in &batches {
+            writer.write(batch).map_err(|e| AppError::new(ErrorCategory::Unknown, "JSON write error", Some(e.to_string())))?;
+        }
+        writer.finish().map_err(|e| AppError::new(ErrorCategory::Unknown, "JSON finish error", Some(e.to_string())))?;
+    }
+    let json_str = String::from_utf8(buf).map_err(|e| AppError::new(ErrorCategory::Unknown, "UTF8 conversion error", Some(e.to_string())))?;
+    let rows: Vec<serde_json::Value> = serde_json::from_str(&json_str).map_err(|e| AppError::new(ErrorCategory::Unknown, "JSON parse error", Some(e.to_string())))?;
+
+    Ok(TableData {
+        total_rows: row_count,
+        columns,
+        rows,
+    })
 }

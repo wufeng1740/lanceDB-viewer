@@ -34,3 +34,9 @@ export interface ScanResult {
   tables: TableSummary[];
   warnings: string[];
 }
+
+export interface TableData {
+  totalRows: number;
+  columns: string[];
+  rows: Record<string, unknown>[];
+}

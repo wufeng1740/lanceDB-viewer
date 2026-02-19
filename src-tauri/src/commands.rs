@@ -34,3 +34,8 @@ pub async fn get_last_scanned_folder() -> Result<Option<String>, AppError> {
 pub async fn get_table_details(db_path: String, table_name: String) -> Result<TableDetails, AppError> {
     scanner::get_table_details(&db_path, &table_name).await
 }
+
+#[tauri::command]
+pub async fn get_table_data(db_path: String, table_name: String, limit: usize) -> Result<crate::models::TableData, AppError> {
+    scanner::get_table_data(&db_path, &table_name, limit).await
+}

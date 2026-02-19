@@ -64,3 +64,12 @@ impl AppError {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableData {
+    pub total_rows: usize,
+    pub columns: Vec<String>,
+    // We use serde_json::Value to represent arbitrary data types from LanceDB/Arrow
+    pub rows: Vec<serde_json::Value>,
+}

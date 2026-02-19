@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AppError, ScanResult, TableDetails } from './types';
+import type { AppError, ScanResult, TableDetails, TableData } from './types';
 
 function normalizeError(error: unknown): AppError {
   if (typeof error === 'object' && error !== null) {
@@ -39,6 +39,14 @@ export async function getLastScannedFolder(): Promise<string | null> {
 export async function getTableDetails(dbPath: string, tableName: string): Promise<TableDetails> {
   try {
     return await invoke<TableDetails>('get_table_details', { dbPath, tableName });
+  } catch (error) {
+    throw normalizeError(error);
+  }
+}
+
+export async function getTableData(dbPath: string, tableName: string, limit: number): Promise<TableData> {
+  try {
+    return await invoke<TableData>('get_table_data', { dbPath, tableName, limit });
   } catch (error) {
     throw normalizeError(error);
   }
