@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { getLastScannedFolder, getTableDetails, getTableData, scanFolder, selectFolder } from './lib/api';
+import { getLastScannedFolder, getTableDetails, getTableData, scanFolder, selectFolder, selectFile, readTextFile, getMappingFilePath, setMappingFilePath } from './lib/api';
 import type { AppError, TableDetails, TableSummary, TableData } from './lib/types';
 import './styles.css';
+
+interface KbInfo {
+  id: string;
+  name: string;
+}
+
+interface KbMappingConfig {
+  kbs: KbInfo[];
+}
 
 function toUserMessage(error: AppError): string {
   const map: Record<AppError['category'], string> = {
@@ -29,11 +38,56 @@ function formatCellValue(value: unknown): string {
   }
   return String(value);
 }
+// Settings Modal Component
+function SettingsModal({
+  onClose,
+  onLoadMapping,
+  mappingPath
+}: {
+  onClose: () => void;
+  onLoadMapping: () => void;
+  mappingPath: string | null;
+}) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Settings</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+
+        <div className="modal-body">
+          <div className="settings-section">
+            <h4>Knowledge Base Mapping</h4>
+            <div className="setting-item">
+              <label>Current Mapping File:</label>
+              <div className="setting-value">
+                {mappingPath ?? "No file selected"}
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <button onClick={onLoadMapping}>
+                  {mappingPath ? "Change Mapping File" : "Select Mapping File"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          {/* Add more footer actions if needed */}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function App() {
   const [folder, setFolder] = useState<string | null>(null);
   const [tables, setTables] = useState<TableSummary[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [kbMapping, setKbMapping] = useState<Map<string, string>>(new Map());
+  const [mappingPath, setMappingPath] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const [selected, setSelected] = useState<TableSummary | null>(null);
   const [details, setDetails] = useState<TableDetails | null>(null);
@@ -54,7 +108,33 @@ export function App() {
         runScan(saved); // Auto-scan on load if folder exists
       }
     });
+
+    getMappingFilePath().then(async (path) => {
+      if (path) {
+        setMappingPath(path);
+        await loadMappingFile(path);
+      }
+    });
   }, []);
+
+  async function loadMappingFile(path: string) {
+    try {
+      const content = await readTextFile(path);
+      const config: KbMappingConfig = JSON.parse(content);
+      const map = new Map<string, string>();
+      if (config.kbs && Array.isArray(config.kbs)) {
+        for (const kb of config.kbs) {
+          if (kb.id && kb.name) {
+            map.set(kb.id, kb.name);
+          }
+        }
+      }
+      setKbMapping(map);
+    } catch (e) {
+      console.error("Failed to load mapping file", e);
+      // Optional: set error state if critical, but for now just log
+    }
+  }
 
   // Resizing logic
   const startResizing = useCallback(() => {
@@ -101,6 +181,19 @@ export function App() {
     if (!selectedFolder) return;
     setFolder(selectedFolder);
     await runScan(selectedFolder);
+  }
+
+  async function onLoadMapping() {
+    try {
+      const path = await selectFile();
+      if (!path) return;
+
+      setMappingPath(path);
+      await setMappingFilePath(path);
+      await loadMappingFile(path);
+    } catch (e) {
+      setError(e as AppError);
+    }
   }
 
   async function onSelectTable(item: TableSummary) {
@@ -161,6 +254,16 @@ export function App() {
         <button onClick={onPickFolder} disabled={loading}>Select Folder</button>
         <button onClick={() => folder && runScan(folder)} disabled={!folder || loading}>Rescan</button>
         <span className="path" title={folder ?? ''}>{folder ?? 'No folder selected'}</span>
+        <button
+          onClick={() => setShowSettings(true)}
+          title="Settings"
+          style={{ marginLeft: 'auto', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
       </div>
 
       {loading && <div style={{ padding: 10 }}>Scanning...</div>}
@@ -174,7 +277,16 @@ export function App() {
           {grouped.map(([dbPath, dbTables]) => {
             // Extract last part of path for cleaner display
             const parts = dbPath.split(/[/\\]/);
-            const dbName = parts[parts.length - 1] || dbPath;
+            // Reverse iterate to find the first part that matches a known KB ID
+            let dbName = parts[parts.length - 1] || dbPath;
+            for (let i = parts.length - 1; i >= 0; i--) {
+              const part = parts[i];
+              const mapped = kbMapping.get(part);
+              if (mapped) {
+                dbName = mapped;
+                break;
+              }
+            }
 
             return (
               <div key={dbPath} className="db-group">
@@ -278,6 +390,14 @@ export function App() {
           )}
         </main>
       </div>
+
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          onLoadMapping={onLoadMapping}
+          mappingPath={mappingPath}
+        />
+      )}
     </div>
   );
 }

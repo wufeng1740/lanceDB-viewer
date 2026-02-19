@@ -51,3 +51,27 @@ export async function getTableData(dbPath: string, tableName: string, limit: num
     throw normalizeError(error);
   }
 }
+
+export async function selectFile(): Promise<string | null> {
+  return invoke<string | null>('select_file');
+}
+
+export async function readTextFile(path: string): Promise<string> {
+  try {
+    return await invoke<string>('read_text_file', { path });
+  } catch (error) {
+    throw normalizeError(error);
+  }
+}
+
+export async function getMappingFilePath(): Promise<string | null> {
+  return invoke<string | null>('get_mapping_file_path');
+}
+
+export async function setMappingFilePath(path: string): Promise<void> {
+  try {
+    await invoke('set_mapping_file_path', { path });
+  } catch (error) {
+    throw normalizeError(error);
+  }
+}

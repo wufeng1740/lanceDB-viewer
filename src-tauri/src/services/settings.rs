@@ -3,9 +3,10 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 struct AppSettings {
     last_scanned_folder: Option<String>,
+    mapping_file_path: Option<String>,
 }
 
 fn settings_path() -> PathBuf {
@@ -19,24 +20,44 @@ fn settings_path() -> PathBuf {
     base
 }
 
-pub fn get_last_scanned_folder() -> Option<String> {
+fn load_settings() -> AppSettings {
     let path = settings_path();
-    let content = fs::read_to_string(path).ok()?;
-    let parsed: AppSettings = serde_json::from_str(&content).ok()?;
-    parsed.last_scanned_folder
+    if let Ok(content) = fs::read_to_string(path) {
+        if let Ok(parsed) = serde_json::from_str(&content) {
+            return parsed;
+        }
+    }
+    AppSettings::default()
 }
 
-pub fn set_last_scanned_folder(folder: &str) -> Result<(), String> {
+fn save_settings(settings: &AppSettings) -> Result<(), String> {
     let path = settings_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
 
-    let settings = AppSettings {
-        last_scanned_folder: Some(folder.to_string()),
-    };
-    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
     fs::write(path, json).map_err(|e| e.to_string())
+}
+
+pub fn get_last_scanned_folder() -> Option<String> {
+    load_settings().last_scanned_folder
+}
+
+pub fn set_last_scanned_folder(folder: &str) -> Result<(), String> {
+    let mut settings = load_settings();
+    settings.last_scanned_folder = Some(folder.to_string());
+    save_settings(&settings)
+}
+
+pub fn get_mapping_file_path() -> Option<String> {
+    load_settings().mapping_file_path
+}
+
+pub fn set_mapping_file_path(path: &str) -> Result<(), String> {
+    let mut settings = load_settings();
+    settings.mapping_file_path = Some(path.to_string());
+    save_settings(&settings)
 }
 
 #[cfg(test)]
@@ -68,5 +89,24 @@ mod tests {
         set_last_scanned_folder("C:\\test\\dbs").expect("save settings");
         let value = get_last_scanned_folder();
         assert_eq!(value.as_deref(), Some("C:\\test\\dbs"));
+    }
+
+    #[test]
+    fn save_multiple_settings() {
+        let dir = tempdir().expect("tempdir");
+        let settings_file = dir.path().join("settings.json");
+        std::env::set_var(
+            "LANCEDB_VIEWER_SETTINGS_PATH",
+            settings_file.to_string_lossy().to_string(),
+        );
+
+        set_last_scanned_folder("C:\\test\\dbs").expect("save folder");
+        set_mapping_file_path("C:\\map.json").expect("save mapping");
+
+        let folder = get_last_scanned_folder();
+        let mapping = get_mapping_file_path();
+
+        assert_eq!(folder.as_deref(), Some("C:\\test\\dbs"));
+        assert_eq!(mapping.as_deref(), Some("C:\\map.json"));
     }
 }

@@ -16,6 +16,10 @@ fn main() {
             commands::get_last_scanned_folder,
             commands::get_table_details,
             commands::get_table_data,
+            commands::select_file,
+            commands::read_text_file,
+            commands::get_mapping_file_path,
+            commands::set_mapping_file_path,
         ])
         .on_window_event(|_window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
