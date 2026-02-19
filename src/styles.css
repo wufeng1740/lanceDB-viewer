@@ -1,0 +1,91 @@
+:root {
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  color: #1d2838;
+  background: linear-gradient(160deg, #f7fbff 0%, #e7f0ff 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #006ecb;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.path {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 12px;
+}
+
+.panel {
+  background: #ffffffcc;
+  border: 1px solid #d2d9e6;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.item {
+  border: 1px solid #dbe2ee;
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.item.active {
+  border-color: #006ecb;
+  background: #e8f3ff;
+}
+
+.error {
+  color: #8d1f1f;
+  background: #ffe8e8;
+  border: 1px solid #efb4b4;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+@media (max-width: 800px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
