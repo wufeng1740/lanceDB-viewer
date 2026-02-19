@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { getLastScannedFolder, getTableDetails, getTableData, scanFolder, selectFolder, selectFile, readTextFile, getMappingFilePath, setMappingFilePath } from './lib/api';
 import type { AppError, TableDetails, TableSummary, TableData } from './lib/types';
 import { DataTable } from './components/DataTable';
+import { APP_CONFIG } from './lib/config';
 import './styles.css';
 
 interface KbInfo {
@@ -12,6 +13,9 @@ interface KbInfo {
 interface KbMappingConfig {
   kbs: KbInfo[];
 }
+
+type Theme = 'light' | 'dark' | 'auto';
+type TabOption = 'schema' | 'data';
 
 function toUserMessage(error: AppError): string {
   const map: Record<AppError['category'], string> = {
@@ -29,11 +33,19 @@ function toUserMessage(error: AppError): string {
 function SettingsModal({
   onClose,
   onLoadMapping,
-  mappingPath
+  mappingPath,
+  theme,
+  setTheme,
+  defaultTab,
+  setDefaultTab
 }: {
   onClose: () => void;
   onLoadMapping: () => void;
   mappingPath: string | null;
+  theme: Theme;
+  setTheme: (t: Theme) => void;
+  defaultTab: TabOption;
+  setDefaultTab: (t: TabOption) => void;
 }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -45,6 +57,46 @@ function SettingsModal({
 
         <div className="modal-body">
           <div className="settings-section">
+            <h4>View Mode</h4>
+            <div className="setting-item" style={{ flexDirection: 'row', gap: '20px' }}>
+              {(['light', 'dark', 'auto'] as const).map((mode) => (
+                <label key={mode} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="theme"
+                    value={mode}
+                    checked={theme === mode}
+                    onChange={() => setTheme(mode)}
+                  />
+                  <span style={{ textTransform: 'capitalize' }}>
+                    {mode === 'auto' ? 'Auto (System)' : mode}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h4>Default Table View</h4>
+            <div className="setting-item" style={{ flexDirection: 'row', gap: '20px' }}>
+              {(['schema', 'data'] as const).map((tab) => (
+                <label key={tab} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="defaultTab"
+                    value={tab}
+                    checked={defaultTab === tab}
+                    onChange={() => setDefaultTab(tab)}
+                  />
+                  <span style={{ textTransform: 'capitalize' }}>
+                    {tab}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="settings-section">
             <h4>LanceDB Name Mapping</h4>
 
             <div className="mapping-info" style={{ marginBottom: '16px' }}>
@@ -52,29 +104,15 @@ function SettingsModal({
                 Map internal directory names (UUIDs or folder names) to human-readable labels in the sidebar.
               </p>
 
-              <details style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '6px',
-                padding: '8px 12px'
-              }}>
-                <summary style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: '#88aaff' }}>
+              <details className="help-box">
+                <summary style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: 'var(--accent)' }}>
                   View JSON Format Example
                 </summary>
                 <div style={{ marginTop: '10px' }}>
-                  <p style={{ fontSize: '12px', color: '#999', margin: '0 0 8px 0' }}>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px 0' }}>
                     Create a <code>.json</code> file with this structure:
                   </p>
-                  <pre style={{
-                    background: '#111',
-                    padding: '12px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    overflowX: 'auto',
-                    border: '1px solid #333',
-                    margin: 0,
-                    fontFamily: 'Consolas, monospace'
-                  }}>
+                  <pre className="code-block">
                     {`{
   "kbs": [
     {
@@ -131,8 +169,44 @@ export function App() {
   const [error, setError] = useState<AppError | null>(null);
 
   const [activeTab, setActiveTab] = useState<'schema' | 'data'>('schema');
-  const [sidebarWidth, setSidebarWidth] = useState(300);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(APP_CONFIG.defaults.sidebarWidth);
   const isResizing = useRef(false);
+
+  // Theme Logic
+  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem(APP_CONFIG.storageKeys.theme) as Theme) || APP_CONFIG.defaults.theme);
+
+  // Default Tab Logic
+  const [defaultTabSetting, setDefaultTabSetting] = useState<TabOption>(() => (localStorage.getItem(APP_CONFIG.storageKeys.defaultTab) as TabOption) || APP_CONFIG.defaults.tab);
+
+  useEffect(() => {
+    localStorage.setItem(APP_CONFIG.storageKeys.defaultTab, defaultTabSetting);
+  }, [defaultTabSetting]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const applyTheme = () => {
+      let activeTheme = theme;
+      if (theme === 'auto') {
+        activeTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+
+      if (activeTheme === 'dark') {
+        root.removeAttribute('data-theme');
+      } else {
+        root.setAttribute('data-theme', 'light');
+      }
+    };
+
+    applyTheme();
+    localStorage.setItem(APP_CONFIG.storageKeys.theme, theme);
+
+    if (theme === 'auto') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = () => applyTheme();
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    }
+  }, [theme]);
 
   useEffect(() => {
     getLastScannedFolder().then((saved) => {
@@ -238,7 +312,7 @@ export function App() {
     setDetails(null);
     setData(null);
     setError(null);
-    setActiveTab('schema'); // Reset to schema view
+    setActiveTab(defaultTabSetting); // Use persisted preference
 
     try {
       // Fetch details immediately
@@ -282,29 +356,46 @@ export function App() {
 
   return (
     <div className="app">
-      <div className="toolbar">
-        <h2>LanceDB Viewer</h2>
-        <button onClick={onPickFolder} disabled={loading}>Select Folder</button>
-        <button onClick={() => folder && runScan(folder)} disabled={!folder || loading}>Rescan</button>
-        <span className="path" title={folder ?? ''}>{folder ?? 'No folder selected'}</span>
-        <button
-          onClick={() => setShowSettings(true)}
-          title="Settings"
-          style={{ marginLeft: 'auto', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-          </svg>
-        </button>
-      </div>
+
 
       {loading && <div style={{ padding: 10 }}>Scanning...</div>}
       {error && <div className="error" style={{ padding: 10, background: '#500', color: '#fff' }}>{toUserMessage(error)} {error.detail ? `(${error.detail})` : ''}</div>}
 
       <div className="main-layout">
         <aside className="sidebar" style={{ width: sidebarWidth }}>
-          <div style={{ padding: 10, borderBottom: '1px solid #444', fontWeight: 'bold' }}>Databases</div>
+          <div className="sidebar-header">
+            <div className="sidebar-controls">
+              <button
+                onClick={onPickFolder}
+                disabled={loading}
+                title="Select Folder"
+                className="icon-only-btn"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              </button>
+              <button
+                onClick={() => folder && runScan(folder)}
+                disabled={!folder || loading}
+                title="Rescan"
+                className="icon-only-btn"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              </button>
+              <div style={{ flex: 1 }}></div>
+              <button
+                onClick={() => setShowSettings(true)}
+                title="Settings"
+                className="icon-only-btn"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+              </button>
+            </div>
+            <div className="current-path" title={folder ?? ''}>{folder ?? 'No folder selected'}</div>
+          </div>
+          <div style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Databases</div>
           {tables.length === 0 && !loading && <div style={{ padding: 20, opacity: 0.6 }}>No tables found.</div>}
 
           {grouped.map(([dbPath, dbTables]) => {
@@ -346,13 +437,16 @@ export function App() {
         <main className="content">
           {selected ? (
             <>
-              <h2 style={{ margin: '0 0 20px 0' }}>
-                {selected.tableName} <small style={{ opacity: 0.6, fontSize: '0.6em', fontWeight: 'normal' }}>{selected.dbPath}</small>
-              </h2>
+              <div className="content-header">
+                <div className="title-row">
+                  <h2>{selected.tableName}</h2>
+                  <div className="db-path">{selected.dbPath}</div>
+                </div>
 
-              <div className="tabs">
-                <div className={`tab ${activeTab === 'schema' ? 'active' : ''}`} onClick={() => setActiveTab('schema')}>Schema</div>
-                <div className={`tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => setActiveTab('data')}>Data</div>
+                <div className="tabs inline">
+                  <div className={`tab ${activeTab === 'schema' ? 'active' : ''}`} onClick={() => setActiveTab('schema')}>Schema</div>
+                  <div className={`tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => setActiveTab('data')}>Data</div>
+                </div>
               </div>
 
               {activeTab === 'schema' && details && (
@@ -406,6 +500,10 @@ export function App() {
           onClose={() => setShowSettings(false)}
           onLoadMapping={onLoadMapping}
           mappingPath={mappingPath}
+          theme={theme}
+          setTheme={setTheme}
+          defaultTab={defaultTabSetting}
+          setDefaultTab={setDefaultTabSetting}
         />
       )}
     </div>
