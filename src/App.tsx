@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { getLastScannedFolder, getTableDetails, getTableData, scanFolder, selectFolder, selectFile, readTextFile, getMappingFilePath, setMappingFilePath } from './lib/api';
 import type { AppError, TableDetails, TableSummary, TableData } from './lib/types';
+import { DataTable } from './components/DataTable';
 import './styles.css';
 
 interface KbInfo {
@@ -23,21 +24,7 @@ function toUserMessage(error: AppError): string {
   return map[error.category] ?? map.unknown;
 }
 
-// Helper to format cell values
-function formatCellValue(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'object') {
-    if (Array.isArray(value)) {
-      // Check if it looks like a vector (array of numbers)
-      if (value.length > 0 && typeof value[0] === 'number') {
-        return `[Vector dim=${value.length}]`;
-      }
-      return `[Array(${value.length})]`;
-    }
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
+
 // Settings Modal Component
 function SettingsModal({
   onClose,
@@ -58,7 +45,53 @@ function SettingsModal({
 
         <div className="modal-body">
           <div className="settings-section">
-            <h4>Knowledge Base Mapping</h4>
+            <h4>LanceDB Name Mapping</h4>
+
+            <div className="mapping-info" style={{ marginBottom: '16px' }}>
+              <p style={{ margin: '0 0 8px 0', fontSize: '14px', lineHeight: '1.4', color: '#ccc' }}>
+                Map internal directory names (UUIDs or folder names) to human-readable labels in the sidebar.
+              </p>
+
+              <details style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '6px',
+                padding: '8px 12px'
+              }}>
+                <summary style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: '#88aaff' }}>
+                  View JSON Format Example
+                </summary>
+                <div style={{ marginTop: '10px' }}>
+                  <p style={{ fontSize: '12px', color: '#999', margin: '0 0 8px 0' }}>
+                    Create a <code>.json</code> file with this structure:
+                  </p>
+                  <pre style={{
+                    background: '#111',
+                    padding: '12px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    overflowX: 'auto',
+                    border: '1px solid #333',
+                    margin: 0,
+                    fontFamily: 'Consolas, monospace'
+                  }}>
+                    {`{
+  "kbs": [
+    {
+      "id": "c05565e7-d65a-4648-8df0-29c470129727",
+      "name": "My Knowledge Base"
+    },
+    {
+      "id": "folder_name_here",
+      "name": "Project Documentation"
+    }
+  ]
+}`}
+                  </pre>
+                </div>
+              </details>
+            </div>
+
             <div className="setting-item">
               <label>Current Mapping File:</label>
               <div className="setting-value">
@@ -352,35 +385,12 @@ export function App() {
               )}
 
               {activeTab === 'data' && (
-                <>
-                  {dataLoading && <div>Loading data...</div>}
-                  {data && (
-                    <div className="data-table-container">
-                      <table>
-                        <thead>
-                          <tr>
-                            {data.columns.map(col => <th key={col}>{col}</th>)}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.rows.map((row, i) => (
-                            <tr key={i}>
-                              {data.columns.map(col => (
-                                <td key={`${i}-${col}`} title={typeof row[col] === 'string' ? row[col] as string : ''}>
-                                  {formatCellValue(row[col])}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                          {data.rows.length === 0 && <tr><td colSpan={data.columns.length} style={{ textAlign: 'center' }}>No data (or empty table)</td></tr>}
-                        </tbody>
-                      </table>
-                      <div style={{ marginTop: 10, opacity: 0.7, fontSize: '0.9em' }}>
-                        Showing first {data.rows.length} rows. Total rows: {data.totalRows}
-                      </div>
-                    </div>
-                  )}
-                </>
+                <DataTable
+                  data={data}
+                  loading={dataLoading}
+                  dbPath={selected.dbPath}
+                  tableName={selected.tableName}
+                />
               )}
             </>
           ) : (
