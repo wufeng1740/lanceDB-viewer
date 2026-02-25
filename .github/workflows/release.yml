@@ -15,11 +15,11 @@ jobs:
       matrix:
         include:
           - platform: ubuntu-22.04
-            tauri_args: ""
+            tauri_args: "--bundles appimage,deb,rpm"
           - platform: windows-latest
-            tauri_args: ""
+            tauri_args: "--bundles nsis"
           - platform: macos-latest
-            tauri_args: ""
+            tauri_args: "--bundles app,dmg"
     runs-on: ${{ matrix.platform }}
 
     steps:
