@@ -38,6 +38,11 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
 
+      - name: Setup protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "25.3"
+
       - name: Install Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
