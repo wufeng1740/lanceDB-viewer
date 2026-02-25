@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 use lancedb::connect;
 use lancedb::query::*;
 use walkdir::{DirEntry, WalkDir};
-use arrow::json::ArrayWriter;
 use futures::StreamExt;
 use arrow::record_batch::RecordBatch;
 
