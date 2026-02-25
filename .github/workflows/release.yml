@@ -15,11 +15,11 @@ jobs:
       matrix:
         include:
           - platform: ubuntu-22.04
-            tauri_args: "--bundles appimage,deb,rpm"
+            tauri_args: "--bundles appimage"
           - platform: windows-latest
             tauri_args: "--bundles nsis"
           - platform: macos-latest
-            tauri_args: "--bundles app,dmg"
+            tauri_args: "--bundles dmg"
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -64,6 +64,11 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: LanceDB Viewer ${{ github.ref_name }}
           releaseBody: |
+            Download guide:
+            - Windows: use `*x64-setup.exe`
+            - macOS: use `*aarch64.dmg`
+            - Linux: use `*amd64.AppImage`
+
             Automated release for ${{ github.ref_name }}.
           releaseDraft: false
           prerelease: false

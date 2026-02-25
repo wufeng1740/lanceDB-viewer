@@ -65,3 +65,9 @@ $env:CARGO_BUILD_JOBS=2; npm run tauri build
 - Large recursive scans may be slow.
 - Some row counts and vector dimensions may be unavailable and shown as unknown.
 - Permission-restricted folders are skipped with warnings.
+
+## License
+
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
+
+- Full text: [LICENSE](./LICENSE)
