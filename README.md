@@ -1,14 +1,24 @@
 # LanceDB Viewer (Windows MVP)
 
-A personal-use desktop viewer for browsing LanceDB datasets with Tauri (Rust backend) + React (UI).
+A lightweight desktop app that helps you quickly find, open, and understand your LanceDB files without writing scripts.
+
+## Project Showcase
+
+- Repository: [wufeng1740/lanceDB-viewer](https://github.com/wufeng1740/lanceDB-viewer)
+- Latest Release: [Download from GitHub Releases](https://github.com/wufeng1740/lanceDB-viewer/releases/latest)
+- Best for: people who want to inspect LanceDB content fast and safely
+
+## App Screenshot
+
+![LanceDB Viewer app screenshot](./docs/images/app-screenshot.png)
 
 ## MVP scope
 
-- Recursively scan a selected folder for LanceDB datasets.
-- List databases and tables.
-- Show table schema fields and vector summary (`hasVector`, `dimension`/`unknown`).
-- Remember the last scanned folder.
-- Read-only metadata browsing (no data/schema mutation).
+- Scan a folder and automatically find all LanceDB datasets.
+- Browse databases and tables in a clear list.
+- View table fields and vector basics at a glance.
+- Reopen quickly from your last used folder.
+- Read-only experience by design, so you can explore with confidence.
 
 ## Not in MVP
 
@@ -40,6 +50,7 @@ If you encounter memory errors during build, use this PowerShell command to limi
 ```powershell
 $env:CARGO_BUILD_JOBS=2; npm run tauri build
 ```
+
 (Run this from the project root)
 
 ## Tests
