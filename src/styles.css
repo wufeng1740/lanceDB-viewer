@@ -274,6 +274,35 @@ th {
   top: 0;
 }
 
+.resizable-th {
+  position: sticky;
+}
+
+.th-label {
+  display: block;
+  padding-right: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+}
+
+.column-resize-handle:hover,
+.column-resize-handle:active {
+  background: var(--accent);
+  opacity: 0.45;
+}
+
 .vector-cell {
   color: var(--text-muted);
   font-style: italic;

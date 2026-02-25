@@ -25,7 +25,22 @@ A personal-use desktop viewer for browsing LanceDB datasets with Tauri (Rust bac
    - `npm install`
 3. Run app:
    - `npm run dev`
-   - In another shell: `cargo tauri dev` (run from `src-tauri/` or via Tauri CLI setup)
+   - In another shell: `cargo tauri dev`
+
+## Building
+
+```bash
+npm run tauri build
+```
+
+### Low Memory Build (Fix for 0xc000012d error)
+
+If you encounter memory errors during build, use this PowerShell command to limit parallelism:
+
+```powershell
+$env:CARGO_BUILD_JOBS=2; npm run tauri build
+```
+(Run this from the project root)
 
 ## Tests
 
