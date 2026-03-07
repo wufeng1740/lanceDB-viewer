@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#08111f"/>
+      <stop offset="1" stop-color="#102646"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="120" y1="80" x2="820" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4dd4ac"/>
+      <stop offset="1" stop-color="#68a7ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect x="64" y="64" width="1152" height="512" rx="28" fill="#0d1729" stroke="#233655" stroke-width="2"/>
+  <rect x="96" y="108" width="360" height="424" rx="18" fill="#0a1322" stroke="#1c2a43"/>
+  <rect x="488" y="108" width="696" height="88" rx="18" fill="#0a1322" stroke="#1c2a43"/>
+  <rect x="488" y="220" width="696" height="312" rx="18" fill="#0a1322" stroke="#1c2a43"/>
+  <text x="112" y="162" fill="#4dd4ac" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700">DATABASES</text>
+  <text x="112" y="215" fill="#e7eefc" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700">My Knowledge Base</text>
+  <text x="112" y="258" fill="#8da0bf" font-family="Segoe UI, Arial, sans-serif" font-size="22">chunks</text>
+  <text x="112" y="296" fill="#8da0bf" font-family="Segoe UI, Arial, sans-serif" font-size="22">documents</text>
+  <text x="112" y="334" fill="#8da0bf" font-family="Segoe UI, Arial, sans-serif" font-size="22">metadata</text>
+  <text x="520" y="160" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="48" font-weight="800">LanceDB Viewer</text>
+  <text x="520" y="312" fill="#ffffff" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Read-only desktop viewer for LanceDB</text>
+  <text x="520" y="362" fill="#a9b8d4" font-family="Segoe UI, Arial, sans-serif" font-size="24">Inspect schema, row previews, and vector metadata</text>
+  <text x="520" y="402" fill="#a9b8d4" font-family="Segoe UI, Arial, sans-serif" font-size="24">without writing throwaway scripts.</text>
+  <rect x="520" y="446" width="320" height="52" rx="26" fill="url(#accent)"/>
+  <text x="554" y="479" fill="#08111f" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="800">github.com/wufeng1740/lanceDB-viewer</text>
+</svg>

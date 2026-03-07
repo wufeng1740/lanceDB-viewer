@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a problem you hit while inspecting LanceDB data.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying LanceDB Viewer. Specific reproduction details are the fastest way to get this fixed.
+  - type: input
+    id: use_case
+    attributes:
+      label: What kind of LanceDB data were you inspecting?
+      placeholder: Example: local RAG knowledge base, embedding cache, evaluation dataset
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+      placeholder: I selected a folder, clicked a table, and the schema view...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: Include the exact steps, folder layout, and any mapping-file details.
+      placeholder: |
+        1. Open LanceDB Viewer
+        2. Select folder...
+        3. Click table...
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshot or error text
+      description: Paste the error text or drag screenshots here.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: wanted
+    attributes:
+      label: What did you need to verify when this failed?
+      description: This helps prioritize fixes around real AI/RAG inspection workflows.
