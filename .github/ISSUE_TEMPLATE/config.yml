@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Show your LanceDB use case
+    url: https://github.com/wufeng1740/lanceDB-viewer/discussions
+    about: Share the dataset or RAG workflow you want to inspect and what slowed you down.
+  - name: Start with sample data
+    url: https://github.com/wufeng1740/lanceDB-viewer/blob/main/docs/sample-data.md
+    about: Follow the zero-setup guide if you want to try LanceDB Viewer before using your own dataset.

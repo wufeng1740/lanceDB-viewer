@@ -1,0 +1,49 @@
+name: Feature request
+description: Suggest a capability that would make LanceDB inspection faster or clearer.
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share the workflow you are trying to speed up. The best requests are tied to a concrete LanceDB inspection task.
+  - type: input
+    id: use_case
+    attributes:
+      label: What kind of LanceDB data are you working with?
+      placeholder: Example: RAG chunks, image embeddings, document KBs
+    validations:
+      required: true
+  - type: textarea
+    id: task
+    attributes:
+      label: What are you trying to do?
+      description: Describe the inspection job, not just the feature label.
+      placeholder: I want to quickly confirm which tables contain vectors and compare row counts across KB folders.
+    validations:
+      required: true
+  - type: textarea
+    id: pain
+    attributes:
+      label: What is slow, unclear, or impossible today?
+      placeholder: Today I have to write a one-off Python script because...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like LanceDB Viewer to do?
+      placeholder: Add a copy-schema button, export a row preview, show scan progress...
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: How important is this for your workflow?
+      options:
+        - Nice to have
+        - Important
+        - Blocking adoption
+    validations:
+      required: true

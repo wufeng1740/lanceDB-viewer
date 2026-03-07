@@ -64,12 +64,38 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: LanceDB Viewer ${{ github.ref_name }}
           releaseBody: |
+            LanceDB Viewer is a read-only desktop app for AI and RAG developers who need to inspect LanceDB datasets without throwaway scripts.
+
+            Best for:
+            - checking what landed after ingestion or indexing
+            - confirming schema, row counts, and vector dimensions
+            - inspecting local knowledge-base folders safely
+
+            30-second start:
+            1. Download the installer for your platform.
+            2. Open LanceDB Viewer.
+            3. Select the root folder that contains your LanceDB data.
+            4. Click a table to inspect schema or preview rows.
+
             Download guide:
             - Windows: use `*x64-setup.exe`
             - macOS: use `*aarch64.dmg`
             - Linux: use `*amd64.AppImage`
 
-            Automated release for ${{ github.ref_name }}.
+            Current limits:
+            - read-only inspection only
+            - no export actions yet
+            - large recursive scans may be slow
+
+            Feedback wanted:
+            1. What kind of LanceDB data are you inspecting?
+            2. Which step felt slow or unclear?
+            3. What should the next release add first?
+
+            Docs:
+            - Quick start: https://github.com/wufeng1740/lanceDB-viewer#quick-start
+            - Sample data: https://github.com/wufeng1740/lanceDB-viewer/blob/main/docs/sample-data.md
+            - Discussions: https://github.com/wufeng1740/lanceDB-viewer/discussions
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.tauri_args }}
