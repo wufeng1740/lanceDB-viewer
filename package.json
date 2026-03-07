@@ -1,6 +1,7 @@
 {
   "name": "lancedb-viewer",
   "version": "1.0.0",
+  "author": "Feng Wu",
   "private": true,
   "type": "module",
   "scripts": {

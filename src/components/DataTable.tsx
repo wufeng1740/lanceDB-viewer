@@ -47,6 +47,40 @@ function formatCellValue(value: unknown): string {
     return String(value);
 }
 
+function handleCellCopy(e: React.ClipboardEvent<HTMLDivElement>, value: unknown) {
+    const selection = window.getSelection()?.toString();
+    if (!selection) return;
+
+    const strValue = formatCellValue(value);
+    if (!strValue.includes('\n')) return;
+
+    const selectionNoSpace = selection.replace(/\s+/g, '');
+    const valueNoSpace = strValue.replace(/\s+/g, '');
+
+    if (selectionNoSpace === valueNoSpace) {
+        e.clipboardData.setData('text/plain', strValue);
+        e.preventDefault();
+        return;
+    }
+
+    const startIdx = valueNoSpace.indexOf(selectionNoSpace);
+    if (startIdx !== -1) {
+        const map: number[] = [];
+        for (let i = 0; i < strValue.length; i++) {
+            if (!/\s/.test(strValue[i])) {
+                map.push(i);
+            }
+        }
+        const originalStartIdx = map[startIdx];
+        const originalEndIdx = map[startIdx + selectionNoSpace.length - 1];
+        if (originalStartIdx !== undefined && originalEndIdx !== undefined) {
+            const originalSubstring = strValue.substring(originalStartIdx, originalEndIdx + 1);
+            e.clipboardData.setData('text/plain', originalSubstring);
+            e.preventDefault();
+        }
+    }
+}
+
 function formatTooltipValue(value: unknown): string {
     if (value === null || value === undefined) return '';
     if (typeof value === 'object') {
@@ -433,7 +467,7 @@ export function DataTable({ data, loading, dbPath, tableName }: DataTableProps) 
                                             : undefined;
                                         return (
                                             <td key={`${originalIndex}-${col}`} title={formatTooltipValue(row[col])} style={style}>
-                                                <div className="cell-content">
+                                                <div className="cell-content" onCopy={(e) => handleCellCopy(e, row[col])}>
                                                     {formatCellValue(row[col])}
                                                 </div>
                                             </td>
@@ -478,7 +512,7 @@ export function DataTable({ data, loading, dbPath, tableName }: DataTableProps) 
                                 </div>
                                 {data.rows.map((row, i) => (
                                     <div key={`${i}-${col}`} className="transposed-cell" title={formatTooltipValue(row[col])}>
-                                        <div className="cell-content">
+                                        <div className="cell-content" onCopy={(e) => handleCellCopy(e, row[col])}>
                                             {formatCellValue(row[col])}
                                         </div>
                                     </div>

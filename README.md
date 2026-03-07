@@ -34,8 +34,7 @@ A lightweight desktop app that helps you quickly find, open, and understand your
 2. Install frontend deps:
    - `npm install`
 3. Run app:
-   - `npm run dev`
-   - In another shell: `cargo tauri dev`
+   - `npm run tauri dev`
 
 ## Building
 

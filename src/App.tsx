@@ -3,6 +3,7 @@ import { getLastScannedFolder, getTableDetails, getTableData, scanFolder, select
 import type { AppError, TableDetails, TableSummary, TableData } from './lib/types';
 import { DataTable } from './components/DataTable';
 import { APP_CONFIG } from './lib/config';
+import pkg from '../package.json';
 import './styles.css';
 
 interface KbInfo {
@@ -140,6 +141,15 @@ function SettingsModal({
                   {mappingPath ? "Change Mapping File" : "Select Mapping File"}
                 </button>
               </div>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h4>About</h4>
+            <div className="setting-item" style={{ fontSize: '0.9rem', lineHeight: '1.6', color: 'var(--text-muted)' }}>
+              <div><strong>App Name:</strong> LanceDB Viewer</div>
+              <div><strong>Version:</strong> {pkg.version}</div>
+              <div><strong>Developer:</strong> {pkg.author}</div>
             </div>
           </div>
         </div>
