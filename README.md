@@ -88,15 +88,8 @@ If you try the app, the most useful feedback is specific:
    - Rust stable toolchain
 2. Install frontend dependencies:
    - `npm install`
-<<<<<<< HEAD
 3. Run app:
    - `npm run tauri dev`
-=======
-3. Run the frontend:
-   - `npm run dev`
-4. In another shell, run the desktop app:
-   - `cargo tauri dev`
->>>>>>> codex/growth-assets-setup
 
 ## Build
 

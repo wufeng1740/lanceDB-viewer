@@ -1,11 +1,7 @@
 {
   "name": "lancedb-viewer",
   "version": "1.0.0",
-<<<<<<< HEAD
   "author": "Feng Wu",
-  "private": true,
-=======
->>>>>>> codex/growth-assets-setup
   "type": "module",
   "scripts": {
     "dev": "vite",
