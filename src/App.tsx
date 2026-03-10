@@ -178,6 +178,9 @@ export function App() {
   const [dataLoading, setDataLoading] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
 
+  const [pageSize, setPageSize] = useState<number>(100);
+  const [currentPage, setCurrentPage] = useState<number>(0);
+
   const [activeTab, setActiveTab] = useState<'schema' | 'data'>('schema');
   const [sidebarWidth, setSidebarWidth] = useState<number>(APP_CONFIG.defaults.sidebarWidth);
   const isResizing = useRef(false);
@@ -322,6 +325,7 @@ export function App() {
     setDetails(null);
     setData(null);
     setError(null);
+    setCurrentPage(0);
     setActiveTab(defaultTabSetting); // Use persisted preference
 
     try {
@@ -333,11 +337,11 @@ export function App() {
     }
   }
 
-  async function loadData() {
+  async function loadData(page: number = currentPage, size: number = pageSize) {
     if (!selected) return;
     setDataLoading(true);
     try {
-      const tableData = await getTableData(selected.dbPath, selected.tableName, 100); // Limit 100
+      const tableData = await getTableData(selected.dbPath, selected.tableName, size, page * size);
       setData(tableData);
     } catch (e) {
       setError(e as AppError);
@@ -346,10 +350,21 @@ export function App() {
     }
   }
 
+  function handlePageChange(page: number) {
+    setCurrentPage(page);
+    loadData(page, pageSize);
+  }
+
+  function handlePageSizeChange(size: number) {
+    setCurrentPage(0);
+    setPageSize(size);
+    loadData(0, size);
+  }
+
   // Switch tabs
   useEffect(() => {
     if (activeTab === 'data' && selected && !data) {
-      loadData();
+      loadData(0, pageSize);
     }
   }, [activeTab, selected]);
 
@@ -494,6 +509,10 @@ export function App() {
                   loading={dataLoading}
                   dbPath={selected.dbPath}
                   tableName={selected.tableName}
+                  pageSize={pageSize}
+                  currentPage={currentPage}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
                 />
               )}
             </>

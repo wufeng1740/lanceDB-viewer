@@ -843,3 +843,45 @@ button:disabled {
     width: 100%;
   }
 }
+
+/* Pagination & Page Size Selector */
+.page-size-select {
+  background: var(--input-bg);
+  color: var(--text-main);
+  border: 1px solid var(--text-muted);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.page-size-select:hover {
+  border-color: var(--accent);
+}
+
+.data-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.data-footer-count {
+  opacity: 0.7;
+  font-size: 0.9em;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-indicator {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+

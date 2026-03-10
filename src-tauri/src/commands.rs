@@ -69,6 +69,6 @@ pub async fn get_table_details(db_path: String, table_name: String) -> Result<Ta
 }
 
 #[tauri::command]
-pub async fn get_table_data(db_path: String, table_name: String, limit: usize) -> Result<crate::models::TableData, AppError> {
-    scanner::get_table_data(&db_path, &table_name, limit).await
+pub async fn get_table_data(db_path: String, table_name: String, limit: usize, offset: usize) -> Result<crate::models::TableData, AppError> {
+    scanner::get_table_data(&db_path, &table_name, limit, offset).await
 }

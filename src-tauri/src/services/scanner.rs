@@ -182,7 +182,7 @@ mod tests {
     }
 }
 
-pub async fn get_table_data(db_path: &str, table_name: &str, limit: usize) -> Result<TableData, AppError> {
+pub async fn get_table_data(db_path: &str, table_name: &str, limit: usize, offset: usize) -> Result<TableData, AppError> {
     let db = connect(db_path).execute().await.map_err(|e| {
         AppError::new(
             ErrorCategory::OpenFailed,
@@ -203,6 +203,7 @@ pub async fn get_table_data(db_path: &str, table_name: &str, limit: usize) -> Re
 
     let mut stream = table
         .query()
+        .offset(offset)
         .limit(limit)
         .execute()
         .await

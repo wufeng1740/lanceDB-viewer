@@ -44,9 +44,9 @@ export async function getTableDetails(dbPath: string, tableName: string): Promis
   }
 }
 
-export async function getTableData(dbPath: string, tableName: string, limit: number): Promise<TableData> {
+export async function getTableData(dbPath: string, tableName: string, limit: number, offset: number): Promise<TableData> {
   try {
-    return await invoke<TableData>('get_table_data', { dbPath, tableName, limit });
+    return await invoke<TableData>('get_table_data', { dbPath, tableName, limit, offset });
   } catch (error) {
     throw normalizeError(error);
   }

@@ -7,6 +7,10 @@ interface DataTableProps {
     loading: boolean;
     dbPath: string;
     tableName: string;
+    pageSize: number;
+    currentPage: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
 }
 
 type ViewMode = 'row' | 'column';
@@ -129,7 +133,7 @@ function formatDetailValue(value: unknown): string {
     return String(value);
 }
 
-export function DataTable({ data, loading, dbPath, tableName }: DataTableProps) {
+export function DataTable({ data, loading, dbPath, tableName, pageSize, currentPage, onPageChange, onPageSizeChange }: DataTableProps) {
     const [viewMode, setViewMode] = useState<ViewMode>('row');
     const [density, setDensity] = useState<Density>('standard');
     const [columnWidths, setColumnWidths] = useState<ColumnWidths>({});
@@ -370,6 +374,19 @@ export function DataTable({ data, loading, dbPath, tableName }: DataTableProps) 
                         Compact
                     </button>
                 </div>
+                <div className="toolbar-group">
+                    <span className="toolbar-label">Rows/page:</span>
+                    <select
+                        className="page-size-select"
+                        value={pageSize}
+                        onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                        aria-label="Rows per page"
+                    >
+                        <option value={100}>100</option>
+                        <option value={500}>500</option>
+                        <option value={1000}>1000</option>
+                    </select>
+                </div>
                 {viewMode === 'row' && (
                     <div className="toolbar-group toolbar-group-grow">
                         <input
@@ -523,8 +540,33 @@ export function DataTable({ data, loading, dbPath, tableName }: DataTableProps) 
                     </div>
                 )}
             </div>
-            <div style={{ marginTop: 10, opacity: 0.7, fontSize: '0.9em' }}>
-                Showing {displayedRowCount} loaded rows. Total rows: {data.totalRows}
+            <div className="data-footer">
+                <span className="data-footer-count">
+                    Showing {displayedRowCount} loaded rows. Total rows: {data.totalRows}
+                </span>
+                {data.totalRows > pageSize && (
+                    <div className="pagination-controls">
+                        <button
+                            className="icon-btn"
+                            onClick={() => onPageChange(currentPage - 1)}
+                            disabled={currentPage === 0}
+                            title="Previous page"
+                        >
+                            ‹ Prev
+                        </button>
+                        <span className="page-indicator">
+                            Page {currentPage + 1} / {Math.ceil(data.totalRows / pageSize)}
+                        </span>
+                        <button
+                            className="icon-btn"
+                            onClick={() => onPageChange(currentPage + 1)}
+                            disabled={(currentPage + 1) * pageSize >= data.totalRows}
+                            title="Next page"
+                        >
+                            Next ›
+                        </button>
+                    </div>
+                )}
             </div>
 
             {selectedRow && (
