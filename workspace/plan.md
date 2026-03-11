@@ -1,36 +1,41 @@
-# Plan to Fix DataTable Newline Copying
+# Plan to Fix Release Failure
 
 ## Rationale
-Currently, the DataTable cells render with `white-space: nowrap`, which collapses newlines (`\n`) into spaces visually. When a user selects and copies text from the grid, the browser copies the visually rendered spaces instead of the original newlines. A native tooltip exists to show the multiline format, but text cannot be copied directly from it.
+The GitHub Actions `release.yml` workflow failed during the `Rust cache` step. The error in the logs was:
+`error: could not find 'Cargo.toml' in 'D:\a\lanceDB-viewer\lanceDB-viewer' or any parent directory`
+This happened because Tauri's Rust codebase is inside the `src-tauri` directory, but the `swatinem/rust-cache@v2` action defaults to looking for `Cargo.toml` in the repository root. We need to explicitly configure the `workspaces` input for this action.
+
+In addition, since the tag `v1.1.0` has already been pushed and its workflow failed, we must delete the existing tag before recreating it to re-trigger the release.
 
 ## Scope Lock
 You are ONLY allowed to modify:
-- `src/components/DataTable.tsx`
+- `.github/workflows/release.yml`
 
 You must NOT:
-- Modify other files
-- Rename types
-- Rename functions
+- Modify other files (other than auto-syncing `package.json` / `tauri.conf.json` via version script)
 - Change folder structure
-- Change schema
-- Change database structure
-- Change logger events
-- Change IPC contracts
-- Introduce new architecture
-- Refactor unrelated logic
+- Change schema or architecture
 
 ## Plan Details
-1. **Intercept the `onCopy` Event in `DataTable.tsx`**:
-   - Add an `onCopy` event handler to the `<td>` and `.transposed-cell` wrapper divs that render the cell content.
-   - When fired, get the raw, complete value of `row[col]` and convert it to a string using `formatCellValue` or similar logic.
-   - Extract the user's current selection via `window.getSelection()?.toString()`.
-   - Compare the selected text with the rendered text (which has spaces instead of newlines). If the user selected the entire cell content, or if we can map their selection to the original string containing newlines, we override the clipboard's `text/plain` data with the original string.
-   - Call `e.preventDefault()` to prevent the browser from overriding our clipboard payload.
-   
-2. **Alternative approach (CSS-based)**:
-   - Modifying `.cell-content` CSS to natively allow `white-space: pre-wrap;` combined with `-webkit-line-clamp: 1` would cause the text to stop at the first newline. This would degrade the preview experience.
-   - Therefore, the `onCopy` interception is the safest and least intrusive change that maintains existing invariants.
+1. **Fix `release.yml`**:
+   - In `.github/workflows/release.yml`, locate the `Rust cache` step.
+   - Add the `with` configuration to specify the Tauri workspace:
+     ```yaml
+           - name: Rust cache
+             uses: swatinem/rust-cache@v2
+             with:
+               workspaces: "src-tauri -> target"
+     ```
 
-3. **Verify the Fix**:
-   - Ensure the cell still displays perfectly on one line.
-   - Ensure the multiline text is correctly populated into the clipboard when copied.
+2. **Re-release Process (Tag Management)**:
+   - Since `v1.1.0` was already tagged and pushed, we need to delete it from both local and remote:
+     - `git tag -d v1.1.0`
+     - `git push origin :refs/tags/v1.1.0`
+   - Proceed with the standard `git-release` skill:
+     - Run `node tools/version-sync.js 1.1.0`
+     - Commit the fix as a new release commit for `v1.1.0`
+     - Tag `v1.1.0` and push both branch and tag.
+
+## Verification
+- Once the tag `v1.1.0` is forcefully pushed, the GitHub Action will trigger.
+- We will monitor the Action (`gh run view`) to ensure the `Rust cache` step passes and the build assets are correctly published.
