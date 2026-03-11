@@ -6,9 +6,9 @@ The GitHub Action release for `v1.1.1` (intended `v1.1.0`) failed during build. 
 ## Tasks
 - [x] Check GitHub Actions logs to identify the build error
   - *Identified: `rust-cache` action could not find `Cargo.toml` in root directory.*
-- [ ] Fix the code/config causing the issue
+- [x] Fix the code/config causing the issue
   - Update `.github/workflows/release.yml` to specify `workspaces: "src-tauri -> target"`
-- [ ] Tag Management: Delete failed `v1.1.0` tag (local & remote)
-- [ ] Re-trigger release procedure for `v1.1.0`
+- [x] Tag Management: Delete failed `v1.1.0` tag (local & remote)
+- [x] Re-trigger release procedure for `v1.1.0`
   - Sync version `1.1.0`
   - Commit, tag, and forcefully push to trigger GitHub Action.
