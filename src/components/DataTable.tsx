@@ -17,6 +17,7 @@ type ViewMode = 'row' | 'column';
 type Density = 'standard' | 'compact';
 type SortDirection = 'asc' | 'desc';
 type ColumnWidths = Record<string, number>;
+type ColumnOrder = string[];
 
 type SortBy = {
     column: string;
@@ -27,6 +28,13 @@ interface ResizeState {
     column: string;
     startX: number;
     startWidth: number;
+}
+
+interface ColDragState {
+    column: string;
+    startX: number;
+    dragging: boolean;
+    dropIdx: number;  // stored in ref to avoid stale closure
 }
 
 interface WrappedRow {
@@ -142,7 +150,14 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
     const [sortBy, setSortBy] = useState<SortBy>(null);
     const [selectedRowOriginalIndex, setSelectedRowOriginalIndex] = useState<number | null>(null);
     const [showColumnFilters, setShowColumnFilters] = useState(false);
+    const [columnOrder, setColumnOrder] = useState<ColumnOrder>([]);
+    const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null);
+    const [draggingColumn, setDraggingColumn] = useState<string | null>(null);
     const resizeRef = useRef<ResizeState | null>(null);
+    const colDragRef = useRef<ColDragState | null>(null);
+    const theadRef = useRef<HTMLTableSectionElement | null>(null);
+    // Always-current ref for orderedColumns — avoids stale closures in native event listeners
+    const orderedColumnsRef = useRef<string[]>([]);
 
     const handleResizeMouseMove = useCallback((event: MouseEvent) => {
         const resizeState = resizeRef.current;
@@ -233,6 +248,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                 setViewMode('row');
                 setDensity('standard');
                 setColumnWidths({});
+                setColumnOrder([]);
             }
         } catch (e) {
             console.warn('Failed to load view preferences', e);
@@ -251,11 +267,11 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
         if (!dbPath || !tableName) return;
         const key = `ldb-view-${dbPath}::${tableName}`;
         try {
-            localStorage.setItem(key, JSON.stringify({ viewMode, density, columnWidths }));
+            localStorage.setItem(key, JSON.stringify({ viewMode, density, columnWidths, columnOrder }));
         } catch (e) {
             console.warn('Failed to save view preferences', e);
         }
-    }, [viewMode, density, columnWidths, dbPath, tableName]);
+    }, [viewMode, density, columnWidths, columnOrder, dbPath, tableName]);
 
     useEffect(() => {
         return () => {
@@ -275,6 +291,25 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [selectedRowOriginalIndex]);
 
+    const orderedColumns = useMemo(() => {
+        if (!data) return [];
+        const baseColumns = data.columns;
+        if (!columnOrder || columnOrder.length === 0) return baseColumns;
+
+        // Preserve only the saved columns that still exist in the data
+        const validOrder = columnOrder.filter(c => baseColumns.includes(c));
+
+        // Find any new columns that aren't in the saved order
+        const newColumns = baseColumns.filter(c => !validOrder.includes(c));
+
+        return [...validOrder, ...newColumns];
+    }, [data, columnOrder]);
+
+    // Keep orderedColumnsRef in sync so native event listeners always see latest columns
+    useEffect(() => {
+        orderedColumnsRef.current = orderedColumns;
+    }, [orderedColumns]);
+
     const wrappedRows = useMemo<WrappedRow[]>(() => {
         if (!data) return [];
         return data.rows.map((row, index) => ({ row, originalIndex: index }));
@@ -292,7 +327,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
         if (!data) return [];
         return wrappedRows.filter(({ row }) => {
             if (normalizedGlobalFilter) {
-                const matchesGlobal = data.columns.some(column => {
+                const matchesGlobal = orderedColumns.some(column => {
                     return toFilterText(row[column]).includes(normalizedGlobalFilter);
                 });
                 if (!matchesGlobal) return false;
@@ -322,6 +357,72 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
         if (!data || selectedRowOriginalIndex === null) return null;
         return data.rows[selectedRowOriginalIndex] ?? null;
     }, [data, selectedRowOriginalIndex]);
+
+    // ---- Mouse-event based column drag ----
+    // All handlers defined inline inside startColDrag to share a single closure
+    // and avoid the stale-closure bug of useCallback with state deps.
+    const getDropIndexFromX = useCallback((clientX: number): number => {
+        if (!theadRef.current) return -1;
+        const ths = Array.from(theadRef.current.querySelectorAll('th.resizable-th'));
+        for (let i = 0; i < ths.length; i++) {
+            const rect = ths[i].getBoundingClientRect();
+            const mid = rect.left + rect.width / 2;
+            if (clientX < mid) return i;
+        }
+        return ths.length;
+    }, []);
+
+    const startColDrag = useCallback((column: string, e: React.MouseEvent<HTMLSpanElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        colDragRef.current = { column, startX: e.clientX, dragging: false, dropIdx: -1 };
+
+        const onMouseMove = (ev: MouseEvent) => {
+            const state = colDragRef.current;
+            if (!state) return;
+            if (!state.dragging && Math.abs(ev.clientX - state.startX) > 5) {
+                state.dragging = true;
+                setDraggingColumn(state.column);
+            }
+            if (state.dragging) {
+                const idx = getDropIndexFromX(ev.clientX);
+                state.dropIdx = idx;  // write to ref directly — no stale closure
+                setDropIndicatorIndex(idx);
+            }
+        };
+
+        const onMouseUp = (_ev: MouseEvent) => {
+            const state = colDragRef.current;
+            if (state?.dragging && state.dropIdx >= 0) {
+                // Read orderedColumnsRef for always-current column list
+                const cols = orderedColumnsRef.current;
+                const fromIdx = cols.indexOf(state.column);
+                const rawTo = state.dropIdx;
+                const toIdx = rawTo > fromIdx ? rawTo - 1 : rawTo;
+                if (fromIdx !== -1 && toIdx !== fromIdx) {
+                    const newOrder = [...cols];
+                    newOrder.splice(fromIdx, 1);
+                    newOrder.splice(toIdx, 0, state.column);
+                    setColumnOrder(newOrder);
+                }
+            }
+            colDragRef.current = null;
+            setDropIndicatorIndex(null);
+            setDraggingColumn(null);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    }, [getDropIndexFromX]);
+
+    const handleResetColumnOrder = useCallback(() => {
+        setColumnOrder([]);
+    }, []);
+
+    // Derive active drag column for styling from state (not ref, so re-renders correctly)
+    const activeDragColumn = draggingColumn;
 
     const hasActiveColumnFilters = activeColumnFilters.length > 0;
     const hasActiveFilterOrSort = normalizedGlobalFilter.length > 0 || hasActiveColumnFilters || sortBy !== null;
@@ -412,6 +513,14 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                         >
                             Clear
                         </button>
+                        <button
+                            className="icon-btn"
+                            onClick={handleResetColumnOrder}
+                            disabled={columnOrder.length === 0}
+                            title="Reset column order to default"
+                        >
+                            Reset Order
+                        </button>
                         <div className="filter-match-count">
                             {sortedRows.length}/{data.rows.length}
                         </div>
@@ -422,7 +531,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
             {viewMode === 'row' && showColumnFilters && (
                 <div className="column-filter-panel">
                     <div className="column-filter-grid">
-                        {data.columns.map((column) => (
+                        {orderedColumns.map((column) => (
                             <label key={column} className="column-filter-item">
                                 <span title={column}>{column}</span>
                                 <input
@@ -441,43 +550,71 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
             <div className="data-table-container">
                 {viewMode === 'row' ? (
                     <table>
-                        <thead>
-                            <tr>
-                                {data.columns.map(col => {
+                        <thead ref={theadRef}>
+                            <tr style={{ position: 'relative' }}>
+                                {orderedColumns.map((col, colIdx) => {
                                     const width = columnWidths[col];
                                     const style = width
                                         ? { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }
                                         : undefined;
                                     const isSorted = sortBy?.column === col;
                                     const ariaSort = isSorted ? (sortBy?.direction === 'asc' ? 'ascending' : 'descending') : 'none';
+                                    const isBeingDragged = activeDragColumn === col;
                                     return (
-                                        <th key={col} className="resizable-th" style={style} aria-sort={ariaSort}>
-                                            <button
-                                                className={`th-sort-button ${isSorted ? 'active' : ''}`}
-                                                onClick={() => toggleSort(col)}
-                                                title="Click to sort"
-                                            >
-                                                <span className="th-label" title={col}>{col}</span>
-                                                <span className="sort-indicator" aria-hidden="true">
-                                                    {isSorted ? (sortBy?.direction === 'asc' ? 'ASC' : 'DESC') : '--'}
+                                        <th
+                                            key={col}
+                                            className={`resizable-th${isBeingDragged ? ' col-dragging' : ''}`}
+                                            style={style}
+                                            aria-sort={ariaSort}
+                                        >
+                                            {/* Drop indicator line: show before this column if dropIndicatorIndex matches */}
+                                            {dropIndicatorIndex === colIdx && (
+                                                <span className="col-drop-indicator" />
+                                            )}
+                                            <div className="th-inner">
+                                                <span
+                                                    className="col-drag-handle"
+                                                    onMouseDown={(e) => startColDrag(col, e)}
+                                                    title="Drag to reorder column"
+                                                >
+                                                    ⠿
                                                 </span>
-                                            </button>
-                                            <div
-                                                className="column-resize-handle"
-                                                onMouseDown={(event) => startResize(col, event)}
-                                                onDoubleClick={(event) => resetColumnWidth(col, event)}
-                                                title="Drag to resize, double-click to reset"
-                                            />
+                                                <div
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    className={`th-sort-button ${isSorted ? 'active' : ''}`}
+                                                    onClick={() => toggleSort(col)}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleSort(col); }}
+                                                    title="Click to sort"
+                                                >
+                                                    <span className="th-label" title={col}>{col}</span>
+                                                    <span className="sort-indicator" aria-hidden="true">
+                                                        {isSorted ? (sortBy?.direction === 'asc' ? 'ASC' : 'DESC') : '--'}
+                                                    </span>
+                                                </div>
+                                                <div
+                                                    className="column-resize-handle"
+                                                    onMouseDown={(event) => startResize(col, event)}
+                                                    onDoubleClick={(event) => resetColumnWidth(col, event)}
+                                                    title="Drag to resize, double-click to reset"
+                                                />
+                                            </div>
                                         </th>
                                     );
                                 })}
+                                {/* Drop indicator at the very end */}
+                                {dropIndicatorIndex === orderedColumns.length && (
+                                    <th style={{ position: 'relative', width: 0, padding: 0, border: 'none' }}>
+                                        <span className="col-drop-indicator" />
+                                    </th>
+                                )}
                                 <th className="row-action-header">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {sortedRows.map(({ row, originalIndex }) => (
                                 <tr key={originalIndex}>
-                                    {data.columns.map(col => {
+                                    {orderedColumns.map(col => {
                                         const width = columnWidths[col];
                                         const style = width
                                             ? { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }
@@ -502,7 +639,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                             ))}
                             {sortedRows.length === 0 && (
                                 <tr>
-                                    <td colSpan={data.columns.length + 1} style={{ textAlign: 'center' }}>
+                                    <td colSpan={orderedColumns.length + 1} style={{ textAlign: 'center' }}>
                                         {data.rows.length === 0 ? 'No data (or empty table)' : 'No matching rows'}
                                     </td>
                                 </tr>
@@ -522,7 +659,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                             </div>
                         )}
 
-                        {data.columns.map(col => (
+                        {orderedColumns.map(col => (
                             <div key={col} className="transposed-row">
                                 <div className="transposed-header" title={col}>
                                     <div className="cell-content">{col}</div>
@@ -582,7 +719,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                             </button>
                         </div>
                         <div className="row-detail-body">
-                            {data.columns.map((column) => (
+                            {orderedColumns.map((column) => (
                                 <div key={column} className="row-detail-item">
                                     <div className="row-detail-key" title={column}>{column}</div>
                                     <pre className="row-detail-value">{formatDetailValue(selectedRow[column])}</pre>
