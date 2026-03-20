@@ -230,7 +230,11 @@ pub async fn get_table_data(db_path: &str, table_name: &str, limit: usize, offse
         writer.finish().map_err(|e| AppError::new(ErrorCategory::Unknown, "JSON finish error", Some(e.to_string())))?;
     }
     let json_str = String::from_utf8(buf).map_err(|e| AppError::new(ErrorCategory::Unknown, "UTF8 conversion error", Some(e.to_string())))?;
-    let rows: Vec<serde_json::Value> = serde_json::from_str(&json_str).map_err(|e| AppError::new(ErrorCategory::Unknown, "JSON parse error", Some(e.to_string())))?;
+    let rows: Vec<serde_json::Value> = if json_str.is_empty() {
+        Vec::new()
+    } else {
+        serde_json::from_str(&json_str).map_err(|e| AppError::new(ErrorCategory::Unknown, "JSON parse error", Some(e.to_string())))?
+    };
 
     Ok(TableData {
         total_rows: row_count,
