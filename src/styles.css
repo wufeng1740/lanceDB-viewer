@@ -442,6 +442,7 @@ th {
 }
 
 .row-detail-body {
+  flex: 1;
   overflow: auto;
   padding: 12px;
   display: flex;
@@ -450,6 +451,7 @@ th {
 }
 
 .row-detail-item {
+  flex-shrink: 0;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   overflow: hidden;
