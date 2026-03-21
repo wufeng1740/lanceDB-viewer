@@ -232,6 +232,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                 const parsed = JSON.parse(stored);
                 if (parsed.viewMode) setViewMode(parsed.viewMode);
                 if (parsed.density) setDensity(parsed.density);
+                if (parsed.columnOrder) setColumnOrder(parsed.columnOrder);
                 if (parsed.columnWidths && typeof parsed.columnWidths === 'object') {
                     const validWidths = Object.entries(parsed.columnWidths).reduce<ColumnWidths>((acc, [col, width]) => {
                         if (typeof width === 'number' && Number.isFinite(width)) {
