@@ -162,6 +162,88 @@ function SettingsModal({
   );
 }
 
+interface TableNode {
+  table: TableSummary;
+  children: TableSummary[];
+}
+
+function groupTablesByBackup(tables: TableSummary[]): TableNode[] {
+  // Sort alphabetically so parent usually comes before child
+  const sorted = [...tables].sort((a, b) => a.tableName.localeCompare(b.tableName));
+  
+  const nodes: TableNode[] = [];
+  
+  for (const table of sorted) {
+    // Check if table is a backup: parentName_backup_suffix
+    const match = table.tableName.match(/^(.*)_backup_.+$/);
+    if (match) {
+      const parentName = match[1];
+      // Find parent node
+      const parentNode = nodes.find(n => n.table.tableName === parentName);
+      if (parentNode) {
+        parentNode.children.push(table);
+        continue;
+      }
+    }
+    // If no parent found or not a backup, add as root
+    nodes.push({ table, children: [] });
+  }
+  return nodes;
+}
+
+function TableNodeItem({
+  node,
+  selected,
+  onSelectTable
+}: {
+  node: TableNode;
+  selected: TableSummary | null;
+  onSelectTable: (item: TableSummary) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  
+  const active = selected?.dbPath === node.table.dbPath && selected?.tableName === node.table.tableName;
+  const hasChildren = node.children.length > 0;
+  
+  return (
+    <div className="table-group-container">
+      <div
+        className={`table-item ${active ? 'active' : ''} ${hasChildren ? 'has-backups' : ''}`}
+        onClick={() => onSelectTable(node.table)}
+      >
+        {hasChildren && (
+          <span 
+            className={`collapse-icon ${expanded ? 'expanded' : ''}`} 
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
+          >
+            ▶
+          </span>
+        )}
+        <span className="table-name-text">{node.table.tableName}</span>
+      </div>
+      {expanded && hasChildren && (
+        <div className="table-backups">
+          {node.children.map(child => {
+            const childActive = selected?.dbPath === child.dbPath && selected?.tableName === child.tableName;
+            return (
+              <div
+                className={`table-item backup-item ${childActive ? 'active' : ''}`}
+                key={`${child.dbPath}/${child.tableName}`}
+                onClick={() => onSelectTable(child)}
+              >
+                {child.tableName}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function App() {
   const [folder, setFolder] = useState<string | null>(null);
   const [tables, setTables] = useState<TableSummary[]>([]);
@@ -440,18 +522,14 @@ export function App() {
             return (
               <div key={dbPath} className="db-group">
                 <div className="db-header" title={dbPath}>{dbName}</div>
-                {dbTables.map((table) => {
-                  const active = selected?.dbPath === table.dbPath && selected?.tableName === table.tableName;
-                  return (
-                    <div
-                      className={`table-item ${active ? 'active' : ''}`}
-                      key={`${table.dbPath}/${table.tableName}`}
-                      onClick={() => onSelectTable(table)}
-                    >
-                      {table.tableName}
-                    </div>
-                  );
-                })}
+                {groupTablesByBackup(dbTables).map((node) => (
+                  <TableNodeItem
+                    key={`${node.table.dbPath}/${node.table.tableName}`}
+                    node={node}
+                    selected={selected}
+                    onSelectTable={onSelectTable}
+                  />
+                ))}
               </div>
             );
           })}

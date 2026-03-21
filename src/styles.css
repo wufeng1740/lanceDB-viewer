@@ -241,6 +241,56 @@ body {
   color: white;
 }
 
+/* Nested Table Backup Styles */
+.table-group-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.table-item.has-backups {
+  padding-left: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.table-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collapse-icon {
+  display: inline-flex;
+  margin-right: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  user-select: none;
+  padding: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.collapse-icon:hover {
+  color: var(--text-main);
+}
+
+.collapse-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.table-backups {
+  display: flex;
+  flex-direction: column;
+}
+
+.table-item.backup-item {
+  padding-left: 32px;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
 /* Old tabs style override or removal - kept for safety but updated above */
 
 /* Old tab style override or removal - kept for safety but updated above */
