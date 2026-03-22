@@ -256,6 +256,7 @@ export function App() {
   const [details, setDetails] = useState<TableDetails | null>(null);
   const [data, setData] = useState<TableData | null>(null);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const [schemaSort, setSchemaSort] = useState<{ key: 'name' | 'dataType' | 'isVector', direction: 'asc' | 'desc' } | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
@@ -410,6 +411,7 @@ export function App() {
     setError(null);
     setCurrentPage(0);
     setActiveTab(defaultTabSetting); // Use persisted preference
+    setSchemaSort(null);
 
     const key = `ldb-view-${item.dbPath}::${item.tableName}`;
     try {
@@ -464,6 +466,29 @@ export function App() {
     }
   }, [activeTab, selected]);
 
+
+  const sortedSchemaFields = useMemo(() => {
+    if (!details) return [];
+    if (!schemaSort) return details.schemaFields;
+
+    return [...details.schemaFields].sort((a, b) => {
+      const { key, direction } = schemaSort;
+      let sortA: string | number = '';
+      let sortB: string | number = '';
+      
+      if (key === 'isVector') {
+          sortA = a.isVector ? 1 : 0;
+          sortB = b.isVector ? 1 : 0;
+      } else {
+          sortA = (a[key] as string) ?? '';
+          sortB = (b[key] as string) ?? '';
+      }
+
+      if (sortA < sortB) return direction === 'asc' ? -1 : 1;
+      if (sortA > sortB) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [details, schemaSort]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, TableSummary[]>();
@@ -602,13 +627,43 @@ export function App() {
                               title="Toggle all columns"
                             />
                           </th>
-                          <th>Name</th>
-                          <th>Type</th>
-                          <th>Vector</th>
+                          <th
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => {
+                              setSchemaSort(prev => {
+                                if (prev?.key === 'name') return prev.direction === 'asc' ? { key: 'name', direction: 'desc' } : null;
+                                return { key: 'name', direction: 'asc' };
+                              });
+                            }}
+                          >
+                            Name {schemaSort?.key === 'name' ? (schemaSort.direction === 'asc' ? '▲' : '▼') : ''}
+                          </th>
+                          <th
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => {
+                              setSchemaSort(prev => {
+                                if (prev?.key === 'dataType') return prev.direction === 'asc' ? { key: 'dataType', direction: 'desc' } : null;
+                                return { key: 'dataType', direction: 'asc' };
+                              });
+                            }}
+                          >
+                            Type {schemaSort?.key === 'dataType' ? (schemaSort.direction === 'asc' ? '▲' : '▼') : ''}
+                          </th>
+                          <th
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => {
+                              setSchemaSort(prev => {
+                                if (prev?.key === 'isVector') return prev.direction === 'asc' ? { key: 'isVector', direction: 'desc' } : null;
+                                return { key: 'isVector', direction: 'asc' };
+                              });
+                            }}
+                          >
+                            Vector {schemaSort?.key === 'isVector' ? (schemaSort.direction === 'asc' ? '▲' : '▼') : ''}
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {details.schemaFields.map(f => (
+                        {sortedSchemaFields.map(f => (
                           <tr key={f.name}>
                             <td style={{ textAlign: 'center' }}>
                               <input
