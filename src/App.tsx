@@ -255,6 +255,7 @@ export function App() {
   const [selected, setSelected] = useState<TableSummary | null>(null);
   const [details, setDetails] = useState<TableDetails | null>(null);
   const [data, setData] = useState<TableData | null>(null);
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
@@ -410,6 +411,19 @@ export function App() {
     setCurrentPage(0);
     setActiveTab(defaultTabSetting); // Use persisted preference
 
+    const key = `ldb-view-${item.dbPath}::${item.tableName}`;
+    try {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            setHiddenColumns(parsed.hiddenColumns || []);
+        } else {
+            setHiddenColumns([]);
+        }
+    } catch (e) {
+        setHiddenColumns([]);
+    }
+
     try {
       // Fetch details immediately
       const tableDetails = await getTableDetails(item.dbPath, item.tableName);
@@ -562,6 +576,32 @@ export function App() {
                     <table>
                       <thead>
                         <tr>
+                          <th style={{ width: '60px', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={details.schemaFields.length > 0 && hiddenColumns.length === 0}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setHiddenColumns(prev => {
+                                  // If checked, clear hidden columns (all visible). Otherwise, hide all.
+                                  const next = checked ? [] : details.schemaFields.map(f => f.name);
+                                  if (selected) {
+                                    const viewKey = `ldb-view-${selected.dbPath}::${selected.tableName}`;
+                                    try {
+                                      const stored = localStorage.getItem(viewKey);
+                                      const parsed = stored ? JSON.parse(stored) : {};
+                                      parsed.hiddenColumns = next;
+                                      localStorage.setItem(viewKey, JSON.stringify(parsed));
+                                    } catch (err) {
+                                      console.warn('Failed to save hidden columns', err);
+                                    }
+                                  }
+                                  return next;
+                                });
+                              }}
+                              title="Toggle all columns"
+                            />
+                          </th>
                           <th>Name</th>
                           <th>Type</th>
                           <th>Vector</th>
@@ -570,6 +610,30 @@ export function App() {
                       <tbody>
                         {details.schemaFields.map(f => (
                           <tr key={f.name}>
+                            <td style={{ textAlign: 'center' }}>
+                              <input
+                                type="checkbox"
+                                checked={!hiddenColumns.includes(f.name)}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setHiddenColumns(prev => {
+                                    const next = checked ? prev.filter(c => c !== f.name) : [...prev, f.name];
+                                    if (selected) {
+                                      const viewKey = `ldb-view-${selected.dbPath}::${selected.tableName}`;
+                                      try {
+                                        const stored = localStorage.getItem(viewKey);
+                                        const parsed = stored ? JSON.parse(stored) : {};
+                                        parsed.hiddenColumns = next;
+                                        localStorage.setItem(viewKey, JSON.stringify(parsed));
+                                      } catch (err) {
+                                        console.warn('Failed to save hidden columns', err);
+                                      }
+                                    }
+                                    return next;
+                                  });
+                                }}
+                              />
+                            </td>
                             <td>{f.name}</td>
                             <td>{f.dataType}</td>
                             <td>{f.isVector ? `Yes (${f.dimension})` : '-'}</td>
