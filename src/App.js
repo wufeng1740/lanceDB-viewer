@@ -30,6 +30,39 @@ function SettingsModal({ onClose, onLoadMapping, mappingPath, theme, setTheme, d
   ]
 }` })] })] })] }), _jsxs("div", { className: "setting-item", children: [_jsx("label", { children: "Current Mapping File:" }), _jsx("div", { className: "setting-value", children: mappingPath ?? "No file selected" }), _jsx("div", { style: { marginTop: 8 }, children: _jsx("button", { onClick: onLoadMapping, children: mappingPath ? "Change Mapping File" : "Select Mapping File" }) })] })] }), _jsxs("div", { className: "settings-section", children: [_jsx("h4", { children: "About" }), _jsxs("div", { className: "setting-item", style: { fontSize: '0.9rem', lineHeight: '1.6', color: 'var(--text-muted)' }, children: [_jsxs("div", { children: [_jsx("strong", { children: "App Name:" }), " LanceDB Viewer"] }), _jsxs("div", { children: [_jsx("strong", { children: "Version:" }), " ", pkg.version] }), _jsxs("div", { children: [_jsx("strong", { children: "Developer:" }), " ", pkg.author] })] })] })] }), _jsx("div", { className: "modal-footer" })] }) }));
 }
+function groupTablesByBackup(tables) {
+    // Sort alphabetically so parent usually comes before child
+    const sorted = [...tables].sort((a, b) => a.tableName.localeCompare(b.tableName));
+    const nodes = [];
+    for (const table of sorted) {
+        // Check if table is a backup: parentName_backup_suffix
+        const match = table.tableName.match(/^(.*)_backup_.+$/);
+        if (match) {
+            const parentName = match[1];
+            // Find parent node
+            const parentNode = nodes.find(n => n.table.tableName === parentName);
+            if (parentNode) {
+                parentNode.children.push(table);
+                continue;
+            }
+        }
+        // If no parent found or not a backup, add as root
+        nodes.push({ table, children: [] });
+    }
+    return nodes;
+}
+function TableNodeItem({ node, selected, onSelectTable }) {
+    const [expanded, setExpanded] = useState(false);
+    const active = selected?.dbPath === node.table.dbPath && selected?.tableName === node.table.tableName;
+    const hasChildren = node.children.length > 0;
+    return (_jsxs("div", { className: "table-group-container", children: [_jsxs("div", { className: `table-item ${active ? 'active' : ''} ${hasChildren ? 'has-backups' : ''}`, onClick: () => onSelectTable(node.table), children: [hasChildren && (_jsx("span", { className: `collapse-icon ${expanded ? 'expanded' : ''}`, onClick: (e) => {
+                            e.stopPropagation();
+                            setExpanded(!expanded);
+                        }, children: "\u25B6" })), _jsx("span", { className: "table-name-text", children: node.table.tableName })] }), expanded && hasChildren && (_jsx("div", { className: "table-backups", children: node.children.map(child => {
+                    const childActive = selected?.dbPath === child.dbPath && selected?.tableName === child.tableName;
+                    return (_jsx("div", { className: `table-item backup-item ${childActive ? 'active' : ''}`, onClick: () => onSelectTable(child), children: child.tableName }, `${child.dbPath}/${child.tableName}`));
+                }) }))] }));
+}
 export function App() {
     const [folder, setFolder] = useState(null);
     const [tables, setTables] = useState([]);
@@ -40,6 +73,8 @@ export function App() {
     const [selected, setSelected] = useState(null);
     const [details, setDetails] = useState(null);
     const [data, setData] = useState(null);
+    const [hiddenColumns, setHiddenColumns] = useState([]);
+    const [schemaSort, setSchemaSort] = useState(null);
     const [loading, setLoading] = useState(false);
     const [dataLoading, setDataLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -177,6 +212,21 @@ export function App() {
         setError(null);
         setCurrentPage(0);
         setActiveTab(defaultTabSetting); // Use persisted preference
+        setSchemaSort(null);
+        const key = `ldb-view-${item.dbPath}::${item.tableName}`;
+        try {
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                setHiddenColumns(parsed.hiddenColumns || []);
+            }
+            else {
+                setHiddenColumns([]);
+            }
+        }
+        catch (e) {
+            setHiddenColumns([]);
+        }
         try {
             // Fetch details immediately
             const tableDetails = await getTableDetails(item.dbPath, item.tableName);
@@ -216,6 +266,30 @@ export function App() {
             loadData(0, pageSize);
         }
     }, [activeTab, selected]);
+    const sortedSchemaFields = useMemo(() => {
+        if (!details)
+            return [];
+        if (!schemaSort)
+            return details.schemaFields;
+        return [...details.schemaFields].sort((a, b) => {
+            const { key, direction } = schemaSort;
+            let sortA = '';
+            let sortB = '';
+            if (key === 'isVector') {
+                sortA = a.isVector ? 1 : 0;
+                sortB = b.isVector ? 1 : 0;
+            }
+            else {
+                sortA = a[key] ?? '';
+                sortB = b[key] ?? '';
+            }
+            if (sortA < sortB)
+                return direction === 'asc' ? -1 : 1;
+            if (sortA > sortB)
+                return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [details, schemaSort]);
     const grouped = useMemo(() => {
         const map = new Map();
         for (const item of tables) {
@@ -238,9 +312,61 @@ export function App() {
                                         break;
                                     }
                                 }
-                                return (_jsxs("div", { className: "db-group", children: [_jsx("div", { className: "db-header", title: dbPath, children: dbName }), dbTables.map((table) => {
-                                            const active = selected?.dbPath === table.dbPath && selected?.tableName === table.tableName;
-                                            return (_jsx("div", { className: `table-item ${active ? 'active' : ''}`, onClick: () => onSelectTable(table), children: table.tableName }, `${table.dbPath}/${table.tableName}`));
-                                        })] }, dbPath));
-                            })] }), _jsx("div", { className: "resizer", onMouseDown: startResizing }), _jsx("main", { className: "content", children: selected ? (_jsxs(_Fragment, { children: [_jsxs("div", { className: "content-header", children: [_jsxs("div", { className: "title-row", children: [_jsx("h2", { children: selected.tableName }), _jsx("div", { className: "db-path", children: selected.dbPath })] }), _jsxs("div", { className: "tabs inline", children: [_jsx("div", { className: `tab ${activeTab === 'schema' ? 'active' : ''}`, onClick: () => setActiveTab('schema'), children: "Schema" }), _jsx("div", { className: `tab ${activeTab === 'data' ? 'active' : ''}`, onClick: () => setActiveTab('data'), children: "Data" })] })] }), activeTab === 'schema' && details && (_jsxs("div", { children: [_jsxs("p", { children: [_jsx("strong", { children: "Rows:" }), " ", details.rowCount ?? 'unknown'] }), _jsxs("p", { children: [_jsx("strong", { children: "Vector Dimension:" }), " ", details.hasVector ? details.vectorDimension ?? 'unknown' : 'None'] }), _jsx("h3", { children: "Fields" }), _jsx("div", { className: "data-table-container", children: _jsxs("table", { children: [_jsx("thead", { children: _jsxs("tr", { children: [_jsx("th", { children: "Name" }), _jsx("th", { children: "Type" }), _jsx("th", { children: "Vector" })] }) }), _jsx("tbody", { children: details.schemaFields.map(f => (_jsxs("tr", { children: [_jsx("td", { children: f.name }), _jsx("td", { children: f.dataType }), _jsx("td", { children: f.isVector ? `Yes (${f.dimension})` : '-' })] }, f.name))) })] }) })] })), activeTab === 'data' && (_jsx(DataTable, { data: data, loading: dataLoading, dbPath: selected.dbPath, tableName: selected.tableName, pageSize: pageSize, currentPage: currentPage, onPageChange: handlePageChange, onPageSizeChange: handlePageSizeChange }))] })) : (_jsx("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5 }, children: "Select a table to view details" })) })] }), showSettings && (_jsx(SettingsModal, { onClose: () => setShowSettings(false), onLoadMapping: onLoadMapping, mappingPath: mappingPath, theme: theme, setTheme: setTheme, defaultTab: defaultTabSetting, setDefaultTab: setDefaultTabSetting }))] }));
+                                return (_jsxs("div", { className: "db-group", children: [_jsx("div", { className: "db-header", title: dbPath, children: dbName }), groupTablesByBackup(dbTables).map((node) => (_jsx(TableNodeItem, { node: node, selected: selected, onSelectTable: onSelectTable }, `${node.table.dbPath}/${node.table.tableName}`)))] }, dbPath));
+                            })] }), _jsx("div", { className: "resizer", onMouseDown: startResizing }), _jsx("main", { className: "content", children: selected ? (_jsxs(_Fragment, { children: [_jsxs("div", { className: "content-header", children: [_jsxs("div", { className: "title-row", children: [_jsx("h2", { children: selected.tableName }), _jsx("div", { className: "db-path", children: selected.dbPath })] }), _jsxs("div", { className: "tabs inline", children: [_jsx("div", { className: `tab ${activeTab === 'schema' ? 'active' : ''}`, onClick: () => setActiveTab('schema'), children: "Schema" }), _jsx("div", { className: `tab ${activeTab === 'data' ? 'active' : ''}`, onClick: () => setActiveTab('data'), children: "Data" })] })] }), activeTab === 'schema' && details && (_jsxs("div", { children: [_jsxs("p", { children: [_jsx("strong", { children: "Rows:" }), " ", details.rowCount ?? 'unknown'] }), _jsxs("p", { children: [_jsx("strong", { children: "Vector Dimension:" }), " ", details.hasVector ? details.vectorDimension ?? 'unknown' : 'None'] }), _jsx("h3", { children: "Fields" }), _jsx("div", { className: "data-table-container", children: _jsxs("table", { children: [_jsx("thead", { children: _jsxs("tr", { children: [_jsx("th", { style: { width: '60px', textAlign: 'center' }, children: _jsx("input", { type: "checkbox", checked: details.schemaFields.length > 0 && hiddenColumns.length === 0, onChange: (e) => {
+                                                                            const checked = e.target.checked;
+                                                                            setHiddenColumns(prev => {
+                                                                                // If checked, clear hidden columns (all visible). Otherwise, hide all.
+                                                                                const next = checked ? [] : details.schemaFields.map(f => f.name);
+                                                                                if (selected) {
+                                                                                    const viewKey = `ldb-view-${selected.dbPath}::${selected.tableName}`;
+                                                                                    try {
+                                                                                        const stored = localStorage.getItem(viewKey);
+                                                                                        const parsed = stored ? JSON.parse(stored) : {};
+                                                                                        parsed.hiddenColumns = next;
+                                                                                        localStorage.setItem(viewKey, JSON.stringify(parsed));
+                                                                                    }
+                                                                                    catch (err) {
+                                                                                        console.warn('Failed to save hidden columns', err);
+                                                                                    }
+                                                                                }
+                                                                                return next;
+                                                                            });
+                                                                        }, title: "Toggle all columns" }) }), _jsxs("th", { style: { cursor: 'pointer', userSelect: 'none' }, onClick: () => {
+                                                                        setSchemaSort(prev => {
+                                                                            if (prev?.key === 'name')
+                                                                                return prev.direction === 'asc' ? { key: 'name', direction: 'desc' } : null;
+                                                                            return { key: 'name', direction: 'asc' };
+                                                                        });
+                                                                    }, children: ["Name ", schemaSort?.key === 'name' ? (schemaSort.direction === 'asc' ? '▲' : '▼') : ''] }), _jsxs("th", { style: { cursor: 'pointer', userSelect: 'none' }, onClick: () => {
+                                                                        setSchemaSort(prev => {
+                                                                            if (prev?.key === 'dataType')
+                                                                                return prev.direction === 'asc' ? { key: 'dataType', direction: 'desc' } : null;
+                                                                            return { key: 'dataType', direction: 'asc' };
+                                                                        });
+                                                                    }, children: ["Type ", schemaSort?.key === 'dataType' ? (schemaSort.direction === 'asc' ? '▲' : '▼') : ''] }), _jsxs("th", { style: { cursor: 'pointer', userSelect: 'none' }, onClick: () => {
+                                                                        setSchemaSort(prev => {
+                                                                            if (prev?.key === 'isVector')
+                                                                                return prev.direction === 'asc' ? { key: 'isVector', direction: 'desc' } : null;
+                                                                            return { key: 'isVector', direction: 'asc' };
+                                                                        });
+                                                                    }, children: ["Vector ", schemaSort?.key === 'isVector' ? (schemaSort.direction === 'asc' ? '▲' : '▼') : ''] })] }) }), _jsx("tbody", { children: sortedSchemaFields.map(f => (_jsxs("tr", { children: [_jsx("td", { style: { textAlign: 'center' }, children: _jsx("input", { type: "checkbox", checked: !hiddenColumns.includes(f.name), onChange: (e) => {
+                                                                            const checked = e.target.checked;
+                                                                            setHiddenColumns(prev => {
+                                                                                const next = checked ? prev.filter(c => c !== f.name) : [...prev, f.name];
+                                                                                if (selected) {
+                                                                                    const viewKey = `ldb-view-${selected.dbPath}::${selected.tableName}`;
+                                                                                    try {
+                                                                                        const stored = localStorage.getItem(viewKey);
+                                                                                        const parsed = stored ? JSON.parse(stored) : {};
+                                                                                        parsed.hiddenColumns = next;
+                                                                                        localStorage.setItem(viewKey, JSON.stringify(parsed));
+                                                                                    }
+                                                                                    catch (err) {
+                                                                                        console.warn('Failed to save hidden columns', err);
+                                                                                    }
+                                                                                }
+                                                                                return next;
+                                                                            });
+                                                                        } }) }), _jsx("td", { children: f.name }), _jsx("td", { children: f.dataType }), _jsx("td", { children: f.isVector ? `Yes (${f.dimension})` : '-' })] }, f.name))) })] }) })] })), activeTab === 'data' && (_jsx(DataTable, { data: data, loading: dataLoading, dbPath: selected.dbPath, tableName: selected.tableName, pageSize: pageSize, currentPage: currentPage, onPageChange: handlePageChange, onPageSizeChange: handlePageSizeChange }))] })) : (_jsx("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5 }, children: "Select a table to view details" })) })] }), showSettings && (_jsx(SettingsModal, { onClose: () => setShowSettings(false), onLoadMapping: onLoadMapping, mappingPath: mappingPath, theme: theme, setTheme: setTheme, defaultTab: defaultTabSetting, setDefaultTab: setDefaultTabSetting }))] }));
 }

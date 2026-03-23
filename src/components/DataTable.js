@@ -109,6 +109,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
     const [selectedRowOriginalIndex, setSelectedRowOriginalIndex] = useState(null);
     const [showColumnFilters, setShowColumnFilters] = useState(false);
     const [columnOrder, setColumnOrder] = useState([]);
+    const [hiddenColumns, setHiddenColumns] = useState([]);
     const [dropIndicatorIndex, setDropIndicatorIndex] = useState(null);
     const [draggingColumn, setDraggingColumn] = useState(null);
     const resizeRef = useRef(null);
@@ -173,6 +174,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
             return null;
         });
     }, []);
+    const [isLoaded, setIsLoaded] = useState(false);
     // Load preferences
     useEffect(() => {
         if (!dbPath || !tableName)
@@ -186,6 +188,10 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                     setViewMode(parsed.viewMode);
                 if (parsed.density)
                     setDensity(parsed.density);
+                if (parsed.columnOrder)
+                    setColumnOrder(parsed.columnOrder);
+                if (parsed.hiddenColumns)
+                    setHiddenColumns(parsed.hiddenColumns);
                 if (parsed.columnWidths && typeof parsed.columnWidths === 'object') {
                     const validWidths = Object.entries(parsed.columnWidths).reduce((acc, [col, width]) => {
                         if (typeof width === 'number' && Number.isFinite(width)) {
@@ -205,6 +211,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                 setDensity('standard');
                 setColumnWidths({});
                 setColumnOrder([]);
+                setHiddenColumns([]);
             }
         }
         catch (e) {
@@ -216,19 +223,23 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
         setSortBy(null);
         setSelectedRowOriginalIndex(null);
         setShowColumnFilters(false);
+        setIsLoaded(true);
     }, [dbPath, tableName]);
     // Save preferences
     useEffect(() => {
+        // Prevent initial mount from overwriting localStorage with default states
+        if (!isLoaded)
+            return;
         if (!dbPath || !tableName)
             return;
         const key = `ldb-view-${dbPath}::${tableName}`;
         try {
-            localStorage.setItem(key, JSON.stringify({ viewMode, density, columnWidths, columnOrder }));
+            localStorage.setItem(key, JSON.stringify({ viewMode, density, columnWidths, columnOrder, hiddenColumns }));
         }
         catch (e) {
             console.warn('Failed to save view preferences', e);
         }
-    }, [viewMode, density, columnWidths, columnOrder, dbPath, tableName]);
+    }, [isLoaded, viewMode, density, columnWidths, columnOrder, hiddenColumns, dbPath, tableName]);
     useEffect(() => {
         return () => {
             document.removeEventListener('mousemove', handleResizeMouseMove);
@@ -250,14 +261,15 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
         if (!data)
             return [];
         const baseColumns = data.columns;
-        if (!columnOrder || columnOrder.length === 0)
-            return baseColumns;
+        if (!columnOrder || columnOrder.length === 0) {
+            return baseColumns.filter(c => !hiddenColumns.includes(c));
+        }
         // Preserve only the saved columns that still exist in the data
         const validOrder = columnOrder.filter(c => baseColumns.includes(c));
         // Find any new columns that aren't in the saved order
         const newColumns = baseColumns.filter(c => !validOrder.includes(c));
-        return [...validOrder, ...newColumns];
-    }, [data, columnOrder]);
+        return [...validOrder, ...newColumns].filter(c => !hiddenColumns.includes(c));
+    }, [data, columnOrder, hiddenColumns]);
     // Keep orderedColumnsRef in sync so native event listeners always see latest columns
     useEffect(() => {
         orderedColumnsRef.current = orderedColumns;
