@@ -67,6 +67,14 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional macOS signing/notarization path.
+          # Keep these secrets empty for unsigned builds.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: LanceDB Viewer ${{ github.ref_name }}
@@ -88,6 +96,12 @@ jobs:
             - Windows: use `*x64-setup.exe`
             - macOS: use `*aarch64.dmg`
             - Linux: use `*amd64.AppImage`
+
+            macOS security note:
+            - Current macOS builds may be unsigned/unnotarized if Apple signing secrets are not configured.
+            - If macOS blocks launch, move the app to `/Applications` and run:
+              `xattr -dr com.apple.quarantine "/Applications/LanceDB Viewer.app"`
+            - This release currently targets Apple Silicon (arm64) only.
 
             Current limits:
             - read-only inspection only

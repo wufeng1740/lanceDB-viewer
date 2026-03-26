@@ -56,6 +56,20 @@ This is an inspection tool, not a database management suite.
 
 If you do not have your own dataset ready yet, start with the sample-data guide in [docs/sample-data.md](./docs/sample-data.md).
 
+### macOS Launch Notes
+
+- Current macOS release target is Apple Silicon (arm64) only.
+- Some macOS builds may be unsigned/unnotarized.
+- If macOS reports the app is damaged or blocked:
+  1. Drag `LanceDB Viewer.app` into `/Applications`.
+  2. Run:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/LanceDB Viewer.app"
+```
+
+  3. Reopen the app, or allow it in System Settings -> Privacy & Security.
+
 ## Who It Is For
 
 - AI / RAG developers debugging local knowledge-base pipelines
