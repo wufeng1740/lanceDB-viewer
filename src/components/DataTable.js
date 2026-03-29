@@ -114,6 +114,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
     const [draggingColumn, setDraggingColumn] = useState(null);
     const resizeRef = useRef(null);
     const colDragRef = useRef(null);
+    const colDragCleanupRef = useRef(null);
     const theadRef = useRef(null);
     // Always-current ref for orderedColumns — avoids stale closures in native event listeners
     const orderedColumnsRef = useRef([]);
@@ -244,6 +245,9 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
         return () => {
             document.removeEventListener('mousemove', handleResizeMouseMove);
             document.removeEventListener('mouseup', stopResize);
+            if (colDragCleanupRef.current) {
+                colDragCleanupRef.current();
+            }
         };
     }, [handleResizeMouseMove, stopResize]);
     useEffect(() => {
@@ -337,6 +341,9 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
     const startColDrag = useCallback((column, e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (colDragCleanupRef.current) {
+            colDragCleanupRef.current();
+        }
         colDragRef.current = { column, startX: e.clientX, dragging: false, dropIdx: -1 };
         const onMouseMove = (ev) => {
             const state = colDragRef.current;
@@ -352,9 +359,17 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                 setDropIndicatorIndex(idx);
             }
         };
-        const onMouseUp = (_ev) => {
+        const cleanup = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('blur', onWindowBlur);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            colDragCleanupRef.current = null;
+        };
+        const finishDrag = (applyReorder) => {
             const state = colDragRef.current;
-            if (state?.dragging && state.dropIdx >= 0) {
+            if (applyReorder && state?.dragging && state.dropIdx >= 0) {
                 // Read orderedColumnsRef for always-current column list
                 const cols = orderedColumnsRef.current;
                 const fromIdx = cols.indexOf(state.column);
@@ -370,11 +385,25 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
             colDragRef.current = null;
             setDropIndicatorIndex(null);
             setDraggingColumn(null);
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
+            cleanup();
         };
+        const onMouseUp = (_ev) => {
+            finishDrag(true);
+        };
+        const onWindowBlur = () => {
+            finishDrag(false);
+        };
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                finishDrag(false);
+            }
+        };
+        colDragCleanupRef.current = cleanup;
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('blur', onWindowBlur);
+        document.addEventListener('visibilitychange', onVisibilityChange);
     }, [getDropIndexFromX]);
     const handleResetColumnOrder = useCallback(() => {
         setColumnOrder([]);
@@ -399,7 +428,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                                         const isSorted = sortBy?.column === col;
                                         const ariaSort = isSorted ? (sortBy?.direction === 'asc' ? 'ascending' : 'descending') : 'none';
                                         const isBeingDragged = activeDragColumn === col;
-                                        return (_jsxs("th", { className: `resizable-th${isBeingDragged ? ' col-dragging' : ''}`, style: style, "aria-sort": ariaSort, children: [dropIndicatorIndex === colIdx && (_jsx("span", { className: "col-drop-indicator" })), _jsxs("div", { className: "th-inner", children: [_jsx("span", { className: "col-drag-handle", onMouseDown: (e) => startColDrag(col, e), title: "Drag to reorder column", children: "\u283F" }), _jsxs("div", { role: "button", tabIndex: 0, className: `th-sort-button ${isSorted ? 'active' : ''}`, onClick: () => toggleSort(col), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ')
+                                        return (_jsxs("th", { className: `resizable-th${isBeingDragged ? ' col-dragging' : ''}`, style: style, "aria-sort": ariaSort, children: [dropIndicatorIndex === colIdx && (_jsx("span", { className: "col-drop-indicator" })), _jsxs("div", { className: "th-inner", children: [_jsx("span", { className: "col-drag-handle", draggable: false, onMouseDown: (e) => startColDrag(col, e), onDragStart: (e) => e.preventDefault(), title: "Drag to reorder column", children: "\u283F" }), _jsxs("div", { role: "button", tabIndex: 0, className: `th-sort-button ${isSorted ? 'active' : ''}`, onClick: () => toggleSort(col), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ')
                                                                 toggleSort(col); }, title: "Click to sort", children: [_jsx("span", { className: "th-label", title: col, children: col }), _jsx("span", { className: "sort-indicator", "aria-hidden": "true", children: isSorted ? (sortBy?.direction === 'asc' ? 'ASC' : 'DESC') : '--' })] }), _jsx("div", { className: "column-resize-handle", onMouseDown: (event) => startResize(col, event), onDoubleClick: (event) => resetColumnWidth(col, event), title: "Drag to resize, double-click to reset" })] })] }, col));
                                     }), dropIndicatorIndex === orderedColumns.length && (_jsx("th", { style: { position: 'relative', width: 0, padding: 0, border: 'none' }, children: _jsx("span", { className: "col-drop-indicator" }) })), _jsx("th", { className: "row-action-header", children: "Actions" })] }) }), _jsxs("tbody", { children: [sortedRows.map(({ row, originalIndex }) => (_jsxs("tr", { children: [orderedColumns.map(col => {
                                             const width = columnWidths[col];

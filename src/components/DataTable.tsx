@@ -156,6 +156,7 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
     const [draggingColumn, setDraggingColumn] = useState<string | null>(null);
     const resizeRef = useRef<ResizeState | null>(null);
     const colDragRef = useRef<ColDragState | null>(null);
+    const colDragCleanupRef = useRef<(() => void) | null>(null);
     const theadRef = useRef<HTMLTableSectionElement | null>(null);
     // Always-current ref for orderedColumns — avoids stale closures in native event listeners
     const orderedColumnsRef = useRef<string[]>([]);
@@ -287,6 +288,9 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
         return () => {
             document.removeEventListener('mousemove', handleResizeMouseMove);
             document.removeEventListener('mouseup', stopResize);
+            if (colDragCleanupRef.current) {
+                colDragCleanupRef.current();
+            }
         };
     }, [handleResizeMouseMove, stopResize]);
 
@@ -387,6 +391,9 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
     const startColDrag = useCallback((column: string, e: React.MouseEvent<HTMLSpanElement>) => {
         e.preventDefault();
         e.stopPropagation();
+        if (colDragCleanupRef.current) {
+            colDragCleanupRef.current();
+        }
         colDragRef.current = { column, startX: e.clientX, dragging: false, dropIdx: -1 };
 
         const onMouseMove = (ev: MouseEvent) => {
@@ -403,9 +410,18 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
             }
         };
 
-        const onMouseUp = (_ev: MouseEvent) => {
+        const cleanup = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('blur', onWindowBlur);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            colDragCleanupRef.current = null;
+        };
+
+        const finishDrag = (applyReorder: boolean) => {
             const state = colDragRef.current;
-            if (state?.dragging && state.dropIdx >= 0) {
+            if (applyReorder && state?.dragging && state.dropIdx >= 0) {
                 // Read orderedColumnsRef for always-current column list
                 const cols = orderedColumnsRef.current;
                 const fromIdx = cols.indexOf(state.column);
@@ -421,12 +437,29 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
             colDragRef.current = null;
             setDropIndicatorIndex(null);
             setDraggingColumn(null);
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
+            cleanup();
         };
 
+        const onMouseUp = (_ev: MouseEvent) => {
+            finishDrag(true);
+        };
+
+        const onWindowBlur = () => {
+            finishDrag(false);
+        };
+
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                finishDrag(false);
+            }
+        };
+
+        colDragCleanupRef.current = cleanup;
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('blur', onWindowBlur);
+        document.addEventListener('visibilitychange', onVisibilityChange);
     }, [getDropIndexFromX]);
 
     const handleResetColumnOrder = useCallback(() => {
@@ -586,7 +619,9 @@ export function DataTable({ data, loading, dbPath, tableName, pageSize, currentP
                                             <div className="th-inner">
                                                 <span
                                                     className="col-drag-handle"
+                                                    draggable={false}
                                                     onMouseDown={(e) => startColDrag(col, e)}
+                                                    onDragStart={(e) => e.preventDefault()}
                                                     title="Drag to reorder column"
                                                 >
                                                     ⠿
